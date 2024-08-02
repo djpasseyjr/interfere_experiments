@@ -147,7 +147,8 @@ def run_forecasts(
     method_args: dict,
     results_dict: dict,
     outfile_idx: str,
-    opt_all: bool = True
+    opt_all: bool = True,
+    test=False
 ):
     """Accepts the output of `run_dynamics` along with `method_args` a
     dictionary of inference method arguments, the results_dict, and outfile_idx.
@@ -191,13 +192,6 @@ def run_forecasts(
         # Collect forecast times.
         forecast_times = t[-p:]
 
-        print(f"""
-X_do: {X_dos[i].shape}
-X_historic: {X_historic.shape}
-historic_times: {historic_times.shape}
-forecast_times: {forecast_times.shape}
-              """)
-
         # Attempt to compute forecast and store.
         try:
             X_preds, best_params = interfere.benchmarking.forecast_intervention(
@@ -205,6 +199,10 @@ forecast_times: {forecast_times.shape}
                 best_params=best_params
             )
         except Exception as e:
+            # Raise exceptions during testing but not during experiments.
+            if test:
+                raise e
+            
             X_preds = [e]
             print(
                 f"Error in experiment {outfile_idx}: \n\n",
@@ -220,7 +218,16 @@ forecast_times: {forecast_times.shape}
                 X_historic, historic_times, forecast_times, intervention, **method_args, best_params=best_params)
             
         except Exception as e:
+            # Raise exceptions during testing but not during experiments.   
+            if test:
+                raise e
+       
             X_do_preds = [e]
+
+            print(
+                f"Error in experiment {outfile_idx}: \n\n",
+                traceback.format_exc()
+            )
         
         method_X_do_preds.append(X_do_preds)
 
