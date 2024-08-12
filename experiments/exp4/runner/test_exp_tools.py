@@ -145,7 +145,7 @@ def test_forecast():
     for margs in method_arg_list:
         # Tune hyper parameters, run forecasts and store results.
         exp_tools.run_forecasts(
-            *dyn_sim_output, margs, results, EXP_IDX, opt_all=False)
+            *dyn_sim_output, margs, results, EXP_IDX, opt_all=False, test=True)
         
     # Make sure experiment was saved
     assert len(results["methods"]) == len(method_arg_list)
@@ -185,7 +185,7 @@ def test_forecast_opt_all():
     for margs in method_arg_list:
         # Tune hyper parameters, run forecasts and store results.
         exp_tools.run_forecasts(
-            *dyn_sim_output, margs, results, EXP_IDX, opt_all=True)
+            *dyn_sim_output, margs, results, EXP_IDX, opt_all=True, test=True)
         
     # Make sure experiment was saved
     assert len(results["methods"]) == len(method_arg_list)
@@ -224,7 +224,7 @@ def test_partial_forecast():
     for margs in method_arg_list[:2]:
         # Tune hyper parameters, run forecasts and store results.
         exp_tools.run_forecasts(
-            *dyn_sim_output, margs, results, EXP_IDX, opt_all=False)
+            *dyn_sim_output, margs, results, EXP_IDX, opt_all=False, test=True)
         
     # Make sure that one of the methods was not run.
     not_run_method = method_arg_list[-1]["method_type"].__name__
