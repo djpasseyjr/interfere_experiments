@@ -25,7 +25,7 @@ GPy==1.13.1
 importlib-metadata==7.0.1
 importlib-resources==6.1.1
 iniconfig==2.0.0
-interfere @ git+https://www.github.com/djpasseyjr/interfere@3a8441ea7281b9e2b9fe9fd7b814e0fa87eddec5
+interfere @ git+https://www.github.com/djpasseyjr/interfere@68aec7dc0633440b6b2dc8a68ea3f75fc8db0f83
 ipykernel==6.29.0
 ipyparallel==8.7.0
 ipython==8.18.1
