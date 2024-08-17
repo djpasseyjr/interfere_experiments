@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import pickle as pkl
+import traceback
 
 import interfere
 import numpy as np
@@ -370,4 +371,76 @@ def test_args_are_equal():
     assert exp_tools.args_are_equal(None, None)
     assert not exp_tools.args_are_equal(None, "xxx")
     
-test_forecast_opt_all()
+
+def test_each_hyperparameter():
+    """This test iterates through each hyper parameter in each grid 
+    and determines if the associated model can initialize and forecast
+    with the given hyper parameter setting.
+
+    This does NOT iterate through all COMBINATIONS of hyper parameters.
+    It only checks them individually.
+    """
+
+    cleanup()
+
+    dyn_arg_list, method_arg_list = exp_tools.load_parameters()
+
+    # Find the shortest time series
+    sim_len = [
+        (d["end_time"] - d["start_time"]) / d["dt"]
+        for d in dyn_arg_list
+    ]
+
+    idx_shortest = np.argmin(sim_len)
+    min_len = sim_len[idx_shortest]
+    shortest_dyn = dyn_arg_list[idx_shortest]
+
+    if min_len > 1000:
+        raise ValueError("The shortest simulation in the dynamic model list has"
+        "{min_len} steps. This is too many steps to test all hyper parameters.")
+
+    # Run the simulation.
+    results = exp_tools.load_results(EXP_IDX, shortest_dyn)
+    Xs, X_dos, t, interv = exp_tools.run_dynamics(DYN_ARGS, results, EXP_IDX)
+
+    p, _ = X_dos[0].shape
+    historic_t = t[:-p]
+    forecast_t = t[-p:]
+    historic_endog, historic_exog = interv.split_exogeneous(Xs[0][:-p, :])
+    forecast_exog = interv.eval_at_times(forecast_t)
+
+    errors = []
+    tracebacks = []
+    params = []
+
+    for m_args in method_arg_list:
+        for k in m_args["method_param_grid"].keys():
+            for v in m_args["method_param_grid"][k]:
+
+                try:
+                    # Initialize method
+                    method = m_args["method_type"](
+                        **{**m_args["method_params"], **{k: v}})
+                    
+                    # Try to fit and predict.
+                    method.fit(historic_endog, historic_t, historic_exog)
+                    endo_pred = method.predict(
+                        forecast_t, historic_endog, forecast_exog, 
+                        historic_exog, historic_t, 
+                    )
+                except Exception as e:
+                    errors.append(e)
+                    tracebacks.append(traceback.format_exc())
+                    params.append((k, v))
+
+    if errors:
+        print("----- BAD HYPER PARAMETERS FOUND: -------")
+        for err, tb, (param, value) in zip(errors, tracebacks, params):
+            print("PARAM: ", param, " VALUE: ", value, "\n\n")
+            print(err)
+            print(tb)
+            print("\n\n\n----------------------------------\n")
+                              
+    assert len(errors) == 0
+
+    cleanup()
