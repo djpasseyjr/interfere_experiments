@@ -1,0 +1,27 @@
+[project]
+name = "interfere_experiments"
+version = "0.0.1"
+description = "Supporting experiments using the interfere package."
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["complex systems", "dynamics", "nonlinear", "causal inference", "machine learning", "time series", "forecast", "intervention"]
+authors = [
+  {name = "DJ Passey", email = "djpassey@unc.edu"}
+]
+dependencies = [
+    "interfere@git+https://github.com/djpasseyjr/interfere",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+notebooks = [
+    "jupyter"
+]
+
+[tool.setuptools.packages]
+find = {}
+
+[project.urls]
+Repository = "https://github.com/djpasseyjr/interfere_experiments"
