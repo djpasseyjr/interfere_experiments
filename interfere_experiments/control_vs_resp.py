@@ -159,6 +159,17 @@ def generate_data(
     """
     if train_prior_states is None:
         train_prior_states = rng.random((lags, model.dim))
+    else:
+        if len(train_prior_states.shape) != 2 | \
+            train_prior_states.shape[1] != model.dim:
+            raise ValueError(
+                "The train_prior_states argument must be two dimensional and "
+                "number of columns must match the dimension of the passed "
+                "model. "
+                f"\ntrain_prior_states.shape = {train_prior_states.shape}"
+                f"\nmodel.dim = {model.dim}"
+            )
+        lags = train_prior_states.shape[0]
 
 
     train_prior_t = np.arange((-lags + 1) * timestep, 1 * timestep, timestep)
@@ -446,7 +457,7 @@ class CVROptunaObjective:
         self.metrics = metrics
         self.metric_directions = metric_directions * 3
         self.metric_names = [
-            series + "_" + m.name for m in self.metrics for series in ["train", "forecast", "interv"]
+            series + m.name for m in self.metrics for series in ["train_", "forecast_", "interv_"]
         ]
         self.trial_error_log = {}
         self.trial_imgs = {}
