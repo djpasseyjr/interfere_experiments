@@ -32,7 +32,7 @@ def gut_check_coupled_logistic(
     })
 
 
-def gut_check_belozy() -> interfere.dynamics.Belozyorov3DQuad:
+def gut_check_belozyorov() -> interfere.dynamics.Belozyorov3DQuad:
     """Builds the Belozyorov model used in the forecaster gut check notebook.
 
     Returns:

@@ -4,7 +4,7 @@ import interfere_experiments
 import pytest
 
 QUICK_MODELS = [
-    interfere_experiments.quick_models.gut_check_belozy, 
+    interfere_experiments.quick_models.gut_check_belozyorov, 
     interfere_experiments.quick_models.gut_check_coupled_logistic
 ]
 
