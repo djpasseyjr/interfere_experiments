@@ -126,6 +126,25 @@ class ControlVsRespData:
                     f"\nforecast_states.shape = {self.forecast_states.shape}"
                     f"\ninterv_states.shape = {self.interv_states.shape}"
                 )
+            
+    def __eq__(self, other):
+        """Compare equality across two ControlVsRespData classes.
+        """
+        if not isinstance(other, ControlVsRespData):
+            return False
+        
+        equal = True
+        equal = equal and np.all(self.train_prior_t == other.train_prior_t)
+        equal = equal and np.all(
+            self.train_prior_states == other.train_prior_states)
+        equal = equal and np.all(self.train_t == other.train_t)
+        equal = equal and np.all(self.train_states == other.train_states)
+        equal = equal and np.all(self.forecast_t == other.forecast_t)
+        equal = equal and np.all(self.forecast_states == other.forecast_states)
+        equal = equal and np.all(self.interv_states == other.interv_states)
+        equal = equal and (self.intervention == other.intervention)
+
+        return equal
         
 
 def generate_data(
