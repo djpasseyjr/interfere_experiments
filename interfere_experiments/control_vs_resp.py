@@ -169,6 +169,8 @@ def generate_data(
                 f"\ntrain_prior_states.shape = {train_prior_states.shape}"
                 f"\nmodel.dim = {model.dim}"
             )
+        
+        # Adjust lags.
         lags = train_prior_states.shape[0]
 
 
@@ -177,7 +179,11 @@ def generate_data(
 
     # Simulate training data.
     train_states = model.simulate(
-        train_t, prior_states=train_prior_states, prior_t=train_prior_t)
+        train_t, 
+        prior_states=train_prior_states,
+        prior_t=train_prior_t,
+        rng=rng
+    )
 
     forecast_t = np.arange(
         train_t[-1],
@@ -187,11 +193,11 @@ def generate_data(
 
     # Simulate forecast.
     forecast_states = model.simulate(
-        forecast_t, prior_states=train_states, prior_t=train_t)
+        forecast_t, prior_states=train_states, prior_t=train_t, rng=rng)
 
     # Simulate intervention.
     interv_states = model.simulate(
-        forecast_t, prior_states=train_states, prior_t=train_t, intervention=intervention)
+        forecast_t, prior_states=train_states, prior_t=train_t, intervention=intervention, rng=rng)
 
     return ControlVsRespData(
         train_prior_t,
@@ -440,14 +446,14 @@ class CVROptunaObjective:
         self.model = model
         self.method_type = method_type
         self.data = generate_data(
-            model,
-            num_train_obs,
-            num_forecast_obs,
-            timestep,
-            intervention,
-            self.rng,
-            train_prior_states,
-            lags,
+            model=model,
+            num_train_obs=num_train_obs,
+            num_forecast_obs=num_forecast_obs,
+            timestep=timestep,
+            intervention=intervention,
+            train_prior_states=train_prior_states,
+            lags=lags,
+            rng=rng
         )
         self.intervention = intervention
 
@@ -508,7 +514,12 @@ class CVROptunaObjective:
             # Make predictions.
             train_pred, forecast_pred, interv_pred = make_predictions(
                 method,
-                self.data,
+                self.data.train_prior_t,
+                self.data.train_prior_states,
+                self.data.train_t,
+                self.data.train_states,
+                self.data.forecast_t,
+                self.data.intervention
             )
 
             # Replace nans.
