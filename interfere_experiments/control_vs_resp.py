@@ -1,11 +1,15 @@
 from dataclasses import dataclass
-from typing import Optional, Tuple, Type
+import traceback
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type
 
 import interfere
 from interfere.interventions import ExogIntervention
 import matplotlib.pyplot as plt
 import numpy as np
+from optuna.trial import Trial
 import PIL
+
+DEFAULT_RNG = np.random.default_rng()
 
 
 @dataclass
@@ -130,9 +134,10 @@ def generate_data(
     num_forecast_obs: int,
     timestep: float,
     intervention: interfere.interventions.ExogIntervention,
-    rng: np.random.Generator,
     train_prior_states: Optional[np.ndarray] = None,
     lags: Optional[int] = 50,
+    rng: np.random.RandomState = DEFAULT_RNG,
+
 ) -> ControlVsRespData:
     """Makes data for the control v.s. response problem.
 
@@ -141,8 +146,8 @@ def generate_data(
         num_train_obs (int): Number of training observations.
         num_forecast_obs (int): Number of forecast time points.
         timestep (float): Timestep between each observation.
-        intervention (interfere.interventions.ExogIntervention) The intervention
-            to use to generate a response.
+        intervention (interfere.interventions.ExogIntervention): The 
+            intervention to use to generate a response.
         train_prior_states (Optional[np.ndarray] = None): The initial state and
             historical states to use to start off simualation.
         lags (Optional[int] = 50): How many historic states there should be.
@@ -364,3 +369,167 @@ def visualize(
         'RGBa', fig.canvas.get_width_height(), fig.canvas.buffer_rgba())
     
     return img
+
+
+class CVROptunaObjective:
+    """A class that implements an optuna objective function for control vs
+    response forecasting problems.
+    """
+
+    # Replace forecasted nans with this value.
+    repl_nan_val = 1e9
+
+    def __init__(
+        self,
+        model: interfere.dynamics.base.DynamicModel,
+        method_type: Type[interfere.methods.base.BaseInferenceMethod],
+        num_train_obs: int = 100,
+        num_forecast_obs: int = 25,
+        timestep: float = 1.0,
+        intervention: Optional[interfere.interventions.ExogIntervention] = None,
+        train_prior_states: Optional[np.ndarray] = None,
+        lags: Optional[int] = 50,
+        hyperparam_func: Optional[
+            Callable[[Trial], Dict[str, Any]]] = None,
+        metrics: Iterable[interfere.metrics.CounterfactualForecastingMetric] = (
+            interfere.metrics.ValidPredictionTime(),
+            interfere.metrics.RootMeanStandardizedSquaredError(),
+            interfere.metrics.TTestDirectionalChangeAccuracy()
+        ),
+        metric_directions: Iterable[str] = ("maximize", "minimize", "maximize"),
+        rng: np.random.RandomState = DEFAULT_RNG,
+    ):
+        """Initializes objective function for optuna parameter tuning.
+        
+        Args:
+            model (interfere.dynamics.base.DynamicModel): A model from
+                interfere. 
+            method_type (Type[interfere.methods.base.BaseInferenceMethod]): A
+                forecasting method from interfere.
+            num_train_obs (int): Number of training observations.
+            num_forecast_obs (int): Number of forecast time points.
+            timestep (float): Timestep between each observation.
+            intervention (interfere.interventions.ExogIntervention): The
+                intervention to use to generate a response.
+            train_prior_states (Optional[np.ndarray] = None): The initial state and
+                historical states to use to start off simualation.
+            lags (Optional[int] = 50): How many historic states there should be.
+                Used only when train_prior_states is none.
+            hyperparam_func (callable): Accepts an optuna Trial object and
+                returns a dictionary of parameters. Defaults to the hyper
+                parameter function built into interfere methods.
+            metrics (Iterable[CounterfactualForecastingMetric]): A collection of
+                metrics for measuring success at the counterfactual forecasting
+                problem.
+            metric_directions (Iterable[str]): Must only contain "maximize" or
+                "minimize". To be passed to the optuna study. 
+            rng (np.random.RandomState): Random state for reproducibility.
+        """
+
+        self.model = model
+        self.method_type = method_type
+        self.data = generate_data(
+            model,
+            num_train_obs,
+            num_forecast_obs,
+            timestep,
+            intervention,
+            self.rng,
+            train_prior_states,
+            lags,
+        )
+        self.intervention = intervention
+
+        if hyperparam_func is None:
+            hyperparam_func = method_type._get_optuna_params 
+        self.hyperparam_func = hyperparam_func
+        self.metrics = metrics
+        self.metric_directions = metric_directions * 3
+        self.metric_names = [
+            series + "_" + m.name for m in self.metrics for series in ["train", "forecast", "interv"]
+        ]
+        self.trial_error_log = {}
+        self.trial_imgs = {}
+
+
+    def compute_metrics(
+        self,
+        data: ControlVsRespData,
+        train_pred: np.ndarray,
+        forecast_pred: np.ndarray,
+        interv_pred: np.ndarray,
+        intervention: interfere.interventions.ExogIntervention
+    ):
+        """Computes metrics for control vs response problem.
+
+        Args:
+        
+        Returns:
+            scores (List[float]): A list of scalar scores.
+        """
+        
+        train_scores = [
+            m(data.train_states, data.train_states, train_pred, [])
+            for m in self.metrics
+        ]
+
+        forecast_scores = [
+            m(data.train_states, data.forecast_states, forecast_pred, [])
+            for m in self.metrics
+        ]
+
+        idxs = intervention.intervened_idxs
+        interv_scores = [
+            m(data.train_states, data.interv_states, interv_pred, idxs)
+            for m in self.metrics
+        ]
+
+        return train_scores + forecast_scores + interv_scores
+
+
+    def __call__(self, trial):
+        """Objective function for hyperparameter tuning."""
+
+        # Initialize method.
+        method = self.method_type(**self.hyperparam_func(trial))
+
+        try:
+            # Make predictions.
+            train_pred, forecast_pred, interv_pred = make_predictions(
+                method,
+                self.data,
+            )
+
+            # Replace nans.
+            for pred in [train_pred, forecast_pred, interv_pred]:
+                pred[np.isnan(pred)] = self.repl_nan_val
+
+            # Compute scores.
+            metrics = self.compute_metrics(
+                self.data,
+                train_pred,
+                forecast_pred,
+                interv_pred,
+                self.intervention
+            )
+
+        except Exception as e:
+            # Store error log
+            error_log = str(e) + "\n\n" + traceback.format_exc()
+            self.trial_error_log[trial.number] = error_log
+            # Store empty plot of optimization run.
+            self.trial_imgs[trial.number] = None
+            return [np.nan] * 3 * len(self.metrics)
+
+        # Store clean error log and plot of the optimization run.
+        self.trial_error_log[trial.number] = ""
+        self.trial_imgs[trial.number] = visualize(
+            self.model,
+            self.method_type,
+            self.data,
+            train_pred,
+            forecast_pred,
+            interv_pred,
+        )
+
+        return metrics
