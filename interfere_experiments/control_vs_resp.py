@@ -2,6 +2,8 @@ from dataclasses import dataclass
 import traceback
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type
 
+import PIL.Image
+
 import interfere
 from interfere.interventions import ExogIntervention
 import matplotlib.pyplot as plt
@@ -399,12 +401,26 @@ def visualize(
         f" {type(model).__name__} \n"
     )
     plt.tight_layout()
+    fig.canvas.draw()
 
     # Convert to PIL.Image.
     img = PIL.Image.frombytes(
         'RGBa', fig.canvas.get_width_height(), fig.canvas.buffer_rgba())
+    plt.close(fig)
     
     return img
+
+
+def show_pil(img: PIL.Image.Image):
+    """Displays a PIL image with matplotlib.
+    
+    Args:
+        img: A PIL image.
+    """
+    _, ax = plt.subplots(figsize=tuple(int(s/100) for s in img.size))
+    ax.imshow(img)
+    plt.axis('off')
+    plt.show()
 
 
 class CVROptunaObjective:
