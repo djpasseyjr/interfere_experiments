@@ -35,7 +35,7 @@ dt = 1
 window = 10
 num_train_obs=350
 
-cml_train_prior_states = 0.1 * np.ones((window, dim))
+cml_train_prior_states = RNG.random((window, dim))
 cml_train_prior_t = np.arange(-window * dt + 1, 1, dt)
 cml_train_t = np.arange(0, num_train_obs * dt, dt)
 
