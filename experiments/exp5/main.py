@@ -26,7 +26,7 @@ METHODS = [
     interfere.methods.SINDY,
 ]
 MODEL_NAMES = model_names = ["cml", "belozy"]
-TRIALS_PER_METHOD = 2
+TRIALS_PER_METHOD = 25
 
 # Create CML Training Data.
 
