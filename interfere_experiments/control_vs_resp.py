@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from tempfile import TemporaryFile
 import traceback
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type
 
@@ -403,9 +404,11 @@ def visualize(
     plt.tight_layout()
     fig.canvas.draw()
 
+    tmp_file = TemporaryFile()
+    plt.savefig(tmp_file)
+
     # Convert to PIL.Image.
-    img = PIL.Image.frombytes(
-        'RGBa', fig.canvas.get_width_height(), fig.canvas.buffer_rgba())
+    img = PIL.Image.open(tmp_file)
     plt.close(fig)
     
     return img
