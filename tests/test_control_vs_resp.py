@@ -305,7 +305,7 @@ def test_visualize():
 
     # Check that the image is not grayscale.
     img_array = np.array(img)
-    assert not np.all(img_array[:, :, :1] == img_array), (
+    assert not np.all(img_array[:, :, :1] == img_array[:, :, :3]), (
         "ie.control_vs_resp.visualize() produced an grayscale image. "
         f"img.getextrema() = {img.getextrema()}"
     )
