@@ -2,7 +2,8 @@ from typing import Any, Dict, Iterable
 from unittest.mock import Mock, MagicMock
 
 import interfere
-from interfere.methods.base import BaseInferenceMethod
+from interfere._methods.reservoir_computer import ResComp
+from interfere._methods.vector_autoregression import VAR
 import interfere_experiments as ie
 import numpy as np
 import PIL
@@ -49,7 +50,7 @@ CTRL_V_RESP_DATA = [
         for kwargs in GEN_DATA_ARGS
 ]
 
-METHODS = [interfere.methods.VAR, interfere.methods.ResComp]
+METHODS = [VAR, ResComp]
 
 
 def test_control_vs_resp_data_shape():
@@ -240,7 +241,7 @@ def test_generate_data_rng_is_reproducible(
 @pytest.mark.parametrize("method_type", METHODS)
 def test_predict_array_shapes(
     cvr_data: ie.control_vs_resp.ControlVsRespData,
-    method_type: BaseInferenceMethod
+    method_type: interfere.ForecastMethod
 ):
     """Tests that the shape of all predicted arrays is correct.
 
@@ -248,7 +249,7 @@ def test_predict_array_shapes(
         cvr_data (Dict[str, Any]): The return value of 
             ie.control_vs_resp.generate_data()
             corresponding to the args.
-        method_type (BaseInferenceMethod): The method to use to generate
+        method_type (interfere.ForecastMethod): The method to use to generate
             forecasts.
     """
     tr_pred, fc_pred, ivn_pred = ie.control_vs_resp.make_predictions(
@@ -283,7 +284,7 @@ def test_predict_array_shapes(
 def test_visualize():
     """Tests that ie.control_vs_resp.visualize works correctly."""
 
-    method_type = interfere.methods.VAR
+    method_type = VAR
     model = ie.quick_models.gut_check_belozyorov()
     cvr_data = CTRL_V_RESP_DATA[0]
     tr_pred, fc_pred, ivn_pred = ie.control_vs_resp.make_predictions(
@@ -322,7 +323,7 @@ def test_optuna_obj_data(
             ie.control_vs_resp.generate_data().
     """
     objective = ie.control_vs_resp.CVROptunaObjective(
-        method_type = interfere.methods.VAR,
+        method_type = VAR,
         metrics = (interfere.metrics.RootMeanStandardizedSquaredError(),),
         metric_directions = ("minimize",),
         **gen_data_args
@@ -574,7 +575,7 @@ def test_optuna_obj_figures():
 
     objective = ie.control_vs_resp.CVROptunaObjective(
         **GEN_DATA_ARGS[0], 
-        method_type = interfere.methods.VAR,
+        method_type = VAR,
         hyperparam_func=MagicMock(return_value={}),
     )
 
