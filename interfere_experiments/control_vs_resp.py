@@ -234,7 +234,7 @@ def generate_data(
 
 
 def make_predictions(
-    method: interfere.methods.base.BaseInferenceMethod,
+    method: interfere.ForecastMethod,
     train_prior_t: np.ndarray,
     train_prior_states: np.ndarray,
     train_t: np.ndarray,
@@ -245,7 +245,7 @@ def make_predictions(
     """Uses passed method to forecast training, control, and response data.
 
     Args:
-        method (interfere.methods.base.BaseInferenceMethod): A forecasting
+        method (interfere.ForecastMethod): A forecasting
             method.
         train_prior_t (ndarray): Time values corresponding to
             `train_prior_states`.
@@ -299,7 +299,7 @@ def make_predictions(
 
 def visualize(
     model: interfere.dynamics.base.DynamicModel,
-    method_type: Type[interfere.methods.base.BaseInferenceMethod],
+    method_type: Type[interfere.ForecastMethod],
     data: ControlVsRespData,
     train_pred: np.ndarray,
     forecast_pred: np.ndarray,
@@ -309,7 +309,7 @@ def visualize(
 
     Args:
         model (interfere.dynamics.base.DynamicModel): A model from interfere.
-        method_type (Type[interfere.methods.base.BaseInferenceMethod]): A
+        method_type (Type[interfere.ForecastMethod]): A
             forecasting method from interfere.
         data (ControlVsRespData): A data class containing the training data and
             forecasting targets.
@@ -437,7 +437,7 @@ class CVROptunaObjective:
     def __init__(
         self,
         model: interfere.dynamics.base.DynamicModel,
-        method_type: Type[interfere.methods.base.BaseInferenceMethod],
+        method_type: Type[interfere.ForecastMethod],
         num_train_obs: int = 100,
         num_forecast_obs: int = 25,
         timestep: float = 1.0,
@@ -459,7 +459,7 @@ class CVROptunaObjective:
         Args:
             model (interfere.dynamics.base.DynamicModel): A model from
                 interfere. 
-            method_type (Type[interfere.methods.base.BaseInferenceMethod]): A
+            method_type (Type[interfere.ForecastMethod]): A
                 forecasting method from interfere.
             num_train_obs (int): Number of training observations.
             num_forecast_obs (int): Number of forecast time points.
