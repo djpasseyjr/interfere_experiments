@@ -18,17 +18,17 @@ with open(Path(__file__).parent / 'params.pkl', 'rb') as f:
 SEED = 11
 RNG = np.random.default_rng(SEED)
 METHODS = [
-    # interfere.methods.LTSF,
+    interfere.methods.LTSF,
     interfere.methods.VAR,
-    # interfere.methods.LSTM,
-    # interfere.methods.NHITS,
+    interfere.methods.LSTM,
+    interfere.methods.NHITS,
     interfere.methods.ResComp,
-    # interfere.methods.SINDY,
+    interfere.methods.SINDY,
 ]
 PREDICTOR_METHODS = [interfere.methods.AverageMethod] +  METHODS
 
 MODEL_NAMES = model_names = ["cml", "belozy"]
-TRIALS_PER_METHOD = 1
+TRIALS_PER_METHOD = 25
 
 # Create CML Training Data.
 
