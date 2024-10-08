@@ -2,6 +2,7 @@ import pickle as pkl
 
 
 import interfere
+import interfere.methods
 import interfere_experiments as ie
 import numpy as np
 import optuna

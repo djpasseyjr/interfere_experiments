@@ -5,6 +5,7 @@ warnings.filterwarnings('ignore')
 
 
 import interfere
+import interfere.methods
 import interfere_experiments as ie
 from interfere_experiments.quick_models import gut_check_coupled_logistic, gut_check_belozyorov
 import numpy as np
