@@ -9,7 +9,7 @@ import numpy as np
 import optuna
 
 
-SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp6.0"
+SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp6.1/"
 
 SEED = 11
 RNG = np.random.default_rng(SEED)
@@ -79,7 +79,7 @@ studies = {m.__name__: {} for m in METHODS}
 imgs = {m.__name__: {} for m in METHODS}
 
 
-for sigma in np.linspace(0, 0.5, 11):
+for sigma in np.linspace(0, 0.5, 6):
 
     for model_type, model_key in zip(
         [

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Expected number of hours to run one simulation (always overestimate so that slurm doesnt kill the sim)
-HOURS_PER_SIM=48
+HOURS_PER_SIM=120
 GIGS=16
 
 # Arguments for sbatch. Sets the appropriate time limit and directory

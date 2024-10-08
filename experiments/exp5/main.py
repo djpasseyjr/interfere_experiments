@@ -12,7 +12,7 @@ import numpy as np
 import optuna
 
 
-SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp5.0"
+SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp5.1/"
 with open(Path(__file__).parent / 'params.pkl', 'rb') as f:
     GUT_CHECK_PARAMS = pkl.load(f)
 SEED = 11
