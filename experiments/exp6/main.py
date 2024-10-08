@@ -3,18 +3,17 @@ import pickle as pkl
 
 import interfere
 import interfere_experiments as ie
-from interfere_experiments.quick_models import gut_check_coupled_logistic, gut_check_belozyorov
-import matplotlib.pyplot as plt
 import numpy as np
 import optuna
 
 
-SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp6.1/"
+SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp6.2/"
 
 SEED = 11
 RNG = np.random.default_rng(SEED)
 METHODS = [
-    interfere.methods.LTSFLinearForecaster,
+    interfere.methods.AverageMethod,
+    interfere.methods.LTSF,
     interfere.methods.VAR,
     interfere.methods.LSTM,
     interfere.methods.NHITS,
@@ -100,6 +99,7 @@ for sigma in np.linspace(0, 0.5, 6):
                 model=model,
                 method_type=method,
                 **obj_dynamics_args[model_key],
+                store_plots=False,
                 rng=RNG,  
             )
             study = optuna.create_study(
