@@ -452,6 +452,8 @@ class CVROptunaObjective:
             interfere.metrics.TTestDirectionalChangeAccuracy()
         ),
         metric_directions: Iterable[str] = ("maximize", "minimize", "maximize"),
+        store_plots: bool = True,
+        store_preds: bool = True,
         rng: np.random.RandomState = DEFAULT_RNG,
     ):
         """Initializes objective function for optuna parameter tuning.
@@ -478,6 +480,9 @@ class CVROptunaObjective:
                 problem.
             metric_directions (Iterable[str]): Must only contain "maximize" or
                 "minimize". To be passed to the optuna study. 
+            store_plots (bool): Denotes if a plot of each control v.s. response 
+                prediction should be saved. Accessible in self.trial_imgs.
+            store_preds (bool). Accessible in self.trial_preds.
             rng (np.random.RandomState): Random state for reproducibility.
         """
 
@@ -499,12 +504,15 @@ class CVROptunaObjective:
             hyperparam_func = method_type._get_optuna_params 
         self.hyperparam_func = hyperparam_func
         self.metrics = metrics
+        self.store_plots = store_plots
+        self.store_preds = store_preds
         self.metric_directions = metric_directions * 3
         self.metric_names = [
             series + m.name for m in self.metrics for series in ["train_", "forecast_", "interv_"]
         ]
         self.trial_error_log = {}
         self.trial_imgs = {}
+        self.trial_preds = {}
 
 
     def compute_metrics(
@@ -577,19 +585,37 @@ class CVROptunaObjective:
             # Store error log
             error_log = str(e) + "\n\n" + traceback.format_exc()
             self.trial_error_log[trial.number] = error_log
-            # Store empty plot of optimization run.
+
+            # Optionally store empty predictions.
+            if self.store_preds:
+                self.trial_preds[trial.number] = None
+
+            # Optionally store empty plot.
             self.trial_imgs[trial.number] = None
+
+            # Return NANs.
             return [np.nan] * 3 * len(self.metrics)
 
-        # Store clean error log and plot of the optimization run.
+        # Store clean error log.
         self.trial_error_log[trial.number] = ""
-        self.trial_imgs[trial.number] = visualize(
-            self.model,
-            self.method_type,
-            self.data,
-            train_pred,
-            forecast_pred,
-            interv_pred,
-        )
+
+        # Optionally store predictions.
+        if self.store_preds:
+            self.trial_preds[trial.number] = {
+                "train_pred": train_pred,
+                "forecast_pred": forecast_pred,
+                "interv_pred": interv_pred,
+            }
+
+        # Optionally store a plot.
+        if self.store_plots:
+            self.trial_imgs[trial.number] = visualize(
+                self.model,
+                self.method_type,
+                self.data,
+                train_pred,
+                forecast_pred,
+                interv_pred,
+            )
 
         return metrics

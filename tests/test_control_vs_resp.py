@@ -570,8 +570,9 @@ def test_optuna_obj_exception_log():
     )
 
 
-def test_optuna_obj_figures():
-    """Tests that the CVROptunaObjective stores figures correctly."""
+def test_optuna_obj_storage():
+    """Tests that the CVROptunaObjective stores plots and predictions correctly.
+    """
 
     objective = ie.control_vs_resp.CVROptunaObjective(
         **GEN_DATA_ARGS[0], 
@@ -594,4 +595,66 @@ def test_optuna_obj_figures():
     assert isinstance(objective.trial_imgs[idx], PIL.Image.Image), (
         "Image not saved."
         f"\nobjective.trial_imgs[idx] = {objective.trial_imgs[idx]}"
+    )
+
+    assert set(objective.trial_preds[idx].keys()) == set([
+        "train_pred", "forecast_pred", "interv_pred"]), (
+            "Prediction dictionary did not have the correct keys.\n"
+            f'Expected: ["train_pred", "forecast_pred", "interv_pred"]\n'
+            f'Received: {objective.trial_preds[idx].keys()}'
+        )
+
+
+def test_optuna_obj_no_figures():
+    """Tests that the CVROptunaObjective stores no figures correctly."""
+
+    objective = ie.control_vs_resp.CVROptunaObjective(
+        **GEN_DATA_ARGS[0], 
+        method_type = VAR,
+        hyperparam_func=MagicMock(return_value={}),
+        store_plots=False
+    )
+
+    idx = 88
+    mock_trial = Mock()
+    mock_trial.number = idx
+
+    objective(mock_trial)
+
+    assert objective.trial_error_log[idx] is "", (
+        "Error log not empty."
+        f"\nLog: \n\nobjective.trial_error_log[idx]"
+        f" = {objective.trial_error_log[idx]}"
+    )
+
+    assert objective.trial_imgs == {}, (
+        "objective.trail_imgs should be an empty dict."
+        f"\nobjective.trial_imgs = {objective.trial_imgs}"
+    )
+
+
+def test_optuna_obj_pred_storing():
+    """Tests that optuna objective stores no predictions correctly."""
+    objective = ie.control_vs_resp.CVROptunaObjective(
+        **GEN_DATA_ARGS[0], 
+        method_type = VAR,
+        hyperparam_func=MagicMock(return_value={}),
+        store_preds=False
+    )
+
+    idx = 88
+    mock_trial = Mock()
+    mock_trial.number = idx
+
+    objective(mock_trial)
+
+    assert objective.trial_error_log[idx] is "", (
+        "Error log not empty."
+        f"\nLog: \n\nobjective.trial_error_log[idx]"
+        f" = {objective.trial_error_log[idx]}"
+    )
+
+    assert objective.trial_preds.get(idx, "") is "", (
+        "Prediction dictionary should be empty. \nGot:"
+        f"{objective.trial_preds[idx]}"
     )
