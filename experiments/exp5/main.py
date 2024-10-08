@@ -7,24 +7,25 @@ warnings.filterwarnings('ignore')
 import interfere
 import interfere_experiments as ie
 from interfere_experiments.quick_models import gut_check_coupled_logistic, gut_check_belozyorov
-import matplotlib.pyplot as plt
 import numpy as np
 import optuna
 
 
-SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp5.1/"
+SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp5.2/"
 with open(Path(__file__).parent / 'params.pkl', 'rb') as f:
     GUT_CHECK_PARAMS = pkl.load(f)
 SEED = 11
 RNG = np.random.default_rng(SEED)
 METHODS = [
-    interfere.methods.LTSFLinearForecaster,
+    interfere.methods.LTSF,
     interfere.methods.VAR,
     interfere.methods.LSTM,
     interfere.methods.NHITS,
     interfere.methods.ResComp,
     interfere.methods.SINDY,
 ]
+PREDICTOR_METHODS = METHODS + [interfere.methods.AverageMethod] 
+
 MODEL_NAMES = model_names = ["cml", "belozy"]
 TRIALS_PER_METHOD = 25
 
@@ -88,7 +89,7 @@ dynamics_args = {
 
 # Optimization loop.
 studies = {m.__name__: {} for m in METHODS}
-imgs = {m.__name__: {} for m in METHODS}
+data = {m.__name__: {} for m in METHODS}
 
 for train_t, train_states, base_dyn_name in zip(
     [cml_train_t, belozy_train_t],
@@ -116,11 +117,12 @@ for train_t, train_states, base_dyn_name in zip(
             "]"
         )
 
-        for method in METHODS:
+        for method in PREDICTOR_METHODS:
             objective = ie.control_vs_resp.CVROptunaObjective(
                 model=gen_forecaster,
                 method_type=method,
                 **dynamics_args[base_dyn_name],
+                store_plots=False,
                 rng=RNG,  
             )
             study = optuna.create_study(
@@ -131,10 +133,12 @@ for train_t, train_states, base_dyn_name in zip(
 
             # Save data
             studies[method.__name__][model_name] = study
-            imgs[method.__name__][model_name] = {
-                k: np.array(v) for k, v in objective.trial_imgs.items()}
+            data[method.__name__][model_name] = {
+                "target": objective.data,
+                "trials": objective.trial_preds,
+            }
 
             pkl.dump(
-                {"studies": studies, "imgs": imgs},
+                {"studies": studies, "data": data},
                 open(SAVE_DIR + 'generative_forecaster_studies.pkl', 'wb')
             )

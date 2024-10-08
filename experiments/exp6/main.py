@@ -75,7 +75,7 @@ obj_dynamics_args = {
 
 # Optimization loop.
 studies = {m.__name__: {} for m in METHODS}
-imgs = {m.__name__: {} for m in METHODS}
+data = {m.__name__: {} for m in METHODS}
 
 
 for sigma in np.linspace(0, 0.5, 6):
@@ -110,10 +110,12 @@ for sigma in np.linspace(0, 0.5, 6):
 
             # Save data
             studies[method.__name__][model_name] = study
-            imgs[method.__name__][model_name] = {
-                k: np.array(v) for k, v in objective.trial_imgs.items()}
+            data[method.__name__][model_name] = {
+                "target": objective.data,
+                "trials": objective.trial_preds,
+            }
 
             pkl.dump(
-                {"studies": studies, "imgs": imgs},
+                {"studies": studies, "data": data},
                 open(SAVE_DIR + 'stochastic_sweep_studies.pkl', 'wb')
             )
