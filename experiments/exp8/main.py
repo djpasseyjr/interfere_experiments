@@ -7,18 +7,18 @@ import numpy as np
 import optuna
 
 
-SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp9.0/"
+SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp8.0/"
 
 SEED = 11
 RNG = np.random.default_rng(SEED)
 METHODS = [
     interfere.methods.AverageMethod,
-    # interfere.methods.LTSF,
     interfere.methods.VAR,
-    # interfere.methods.LSTM,
-    # interfere.methods.NHITS,
     interfere.methods.ResComp,
-    # interfere.methods.SINDY,
+    interfere.methods.SINDY,
+    interfere.methods.LTSF,
+    interfere.methods.LSTM,
+    interfere.methods.NHITS,
 ]
 MODELS = [
     ie.quick_models.gut_check_coupled_logistic(),
@@ -45,7 +45,7 @@ MODEL_ARGS = {
     )
 }
 
-TRIALS_PER_METHOD = 1
+TRIALS_PER_METHOD = 25
 NUM_TRAIN_OBS = 300
 NUM_FORECAST_OBS = 50
 
