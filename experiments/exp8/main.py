@@ -50,10 +50,23 @@ NUM_TRAIN_OBS = 300
 NUM_FORECAST_OBS = 50
 
 
-# Optimization loop.
-studies = {m.__name__: {} for m in METHODS}
-data = {m.__name__: {} for m in METHODS}
+# Storage dicts.
+studies = {
+    model: {
+        method.__name__: {}
+        for method in METHODS
+    }
+    for model in MODEL_NAMES
+}
+data = {
+    model: {
+        method.__name__: {}
+        for method in METHODS
+    }
+    for model in MODEL_NAMES
+}
 
+# Optimization loop.
 for model, model_name in zip(
   MODELS,
   MODEL_NAMES
@@ -85,8 +98,8 @@ for model, model_name in zip(
             study.optimize(objective, n_trials=TRIALS_PER_METHOD)
 
             # Save data
-            studies[method.__name__][model_name] = study
-            data[method.__name__][model_name] = {
+            studies[model_name][method.__name__][c] = study
+            data[model_name][method.__name__][c] = {
                 "target": objective.data,
                 "trials": objective.trial_preds,
                 "errors": objective.trial_error_log
