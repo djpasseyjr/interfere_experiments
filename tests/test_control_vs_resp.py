@@ -658,3 +658,90 @@ def test_optuna_obj_pred_storing():
         "Prediction dictionary should be empty. \nGot:"
         f"{objective.trial_preds[idx]}"
     )
+
+INIT_ARGS = [
+    dict(
+        initial_fold_percent = 0.2,
+        val_percent = 0.2,
+        num_folds = 2,
+        num_val_prior_states = 2,
+    ),
+    dict(
+        initial_fold_percent = 0.1,
+        val_percent = 0.2,
+        num_folds = 8,
+        num_val_prior_states = 2,
+    ),
+    dict(
+        initial_fold_percent = 0.2,
+        val_percent = 0.4,
+        num_folds = 1,
+        num_val_prior_states = 2,
+    ),
+]
+
+@pytest.mark.parametrize("init_args", INIT_ARGS)
+def test_global_pred_cv_init(init_args: Dict[str, Any]):
+    """Tests GlobalPredictionCV initialization.
+
+    Args:
+        init_args (Dict[str, Any])
+
+    """
+    initial_fold_percent = init_args["initial_fold_percent"]
+    val_percent = init_args["val_percent"]
+    num_folds = init_args["num_folds"]
+    num_val_prior_states = init_args["num_val_prior_states"]
+    
+    n_obs, dt = 100, 0.5
+    t = np.arange(0, dt * n_obs, dt)
+    belozy_states = ie.quick_models.gut_check_belozyorov().simulate(
+        t, np.array([0.5, 0.1, 0.1])
+    )
+    n_cols = belozy_states.shape[1]
+
+    default_args = {
+        "method_type": VAR,
+        "train_states": belozy_states,
+        "train_times": t,
+    }
+
+    global_cv = ie.control_vs_resp.GlobalPredictionCV(
+        **default_args,
+        initial_fold_percent=initial_fold_percent,
+        val_percent=val_percent,
+        num_folds=num_folds,
+        num_val_prior_states=num_val_prior_states,
+    )
+
+    folds = global_cv.folds
+
+    assert len(folds) == global_cv.num_folds == num_folds, (
+        "Incorrect number of folds. Should be {num_folds}."
+    )
+
+    initial_fold = folds[0]
+    assert initial_fold.shape == (
+        initial_fold_percent * n_obs, n_cols), (
+            "Incorrect shape of initial fold."
+        )
+    
+    fold_obs = [fold.shape[0] for fold in folds]
+    assert np.allclose(np.diff(fold_obs), global_cv.num_addit_obs_per_fold), (
+        f"Incorrect size difference in successive folds.\nFold sizes:{fold_obs}"
+    )
+
+    expected_val_shape = (
+        val_percent * n_obs - num_val_prior_states, n_cols)
+    assert global_cv.val_states.shape == expected_val_shape, (
+        "Incorrect validation states shape."
+        f"\n\tExpected: {expected_val_shape}"
+        f"\n\tProduced {global_cv.val_states.shape}"
+    )
+
+    assert global_cv.val_prior_states.shape == (num_val_prior_states, n_cols), (
+        "Incorrect validation prior states shape."
+        f"\n\tExpected: {(num_val_prior_states, n_cols)}"
+        f"\n\tProduced {global_cv.val_prior_states.shape}"
+    )
+

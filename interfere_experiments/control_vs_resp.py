@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from math import floor
 from tempfile import TemporaryFile
 import traceback
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type
@@ -7,6 +8,7 @@ import PIL.Image
 
 import interfere
 from interfere.interventions import ExogIntervention
+from interfere.metrics import RootMeanStandardizedSquaredError as RMSSE
 import matplotlib.pyplot as plt
 import numpy as np
 from optuna.trial import Trial
@@ -619,3 +621,169 @@ class CVROptunaObjective:
             )
 
         return metrics
+    
+
+class GlobalPredictionCV():
+    """Cross validation scheme for dynamic causal prediction."""
+
+    # Replace forecasted nans with this value.
+    repl_nan_val = 1e9
+
+    def __init__(
+        self,
+        method_type: Type[interfere.ForecastMethod],
+        train_states: np.ndarray,
+        train_times: np.ndarray,
+        initial_fold_percent: float,
+        val_percent: float,
+        num_folds: int,
+        num_val_prior_states: int = 20,
+        metric: interfere.metrics.CounterfactualForecastingMetric = RMSSE,
+        metric_direction: str = "minimize",
+        hyperparam_func: Optional[
+            Callable[[Trial], Dict[str, Any]]] = None,
+        store_preds: bool = True,
+
+    ):
+        """Cross validate a set of hyper parameters on global prediction error. 
+        
+        Global prediction, defined here, is the ability to make predictions 
+        about how the time series will evolve in scenarios that do no 
+        immidiately follow the training data.
+
+        For this cross validaition method, the validation set stays fixed and occurs at the end of the training data. For each fold, the predictive method is given more of the training data and attemps to predict the validation states, which do not occur directy after any of the training folds. (Additionally, some of the validation set is set aside as an initial condition for forecasting methods to use.)
+
+        Args:
+            method_type (Type[interfere.ForecastMethod]): A
+                forecasting method from interfere.
+            train_states (np.ndarray): A two dimensional array of time series  
+                states. Columns are variables and rows are observations 
+                corresponding to the passed times.
+            train_times (np.ndarray): A one dimensional array of times 
+                corresponding to the rows of train_states.
+            initial_fold_percent (float): The percent of the train data to   
+                use for the first CV fold.
+            val_percent (float): The percent of the data to use as a validation 
+                set. Takes the last `val_percent` rows of train_states.
+            num_folds (int): The number of folds. Each fold has 
+                (initial_fold_percent - val_percent) / n_folds more of the 
+                total data to use to make a prediction.
+            num_val_prior_states (int): Designates how many observations in the 
+                validation set to use as an initial condition/prior state.
+            metric (interfere.metrics.CounterfactualForecastingMetric): Metric  
+                to optimize.
+            metric_direction (str): Direction to optimize. One of ["maximize", 
+                "minimize"].
+            hyperparam_func (callable): Accepts an optuna Trial object and
+                returns a dictionary of parameters. Defaults to the hyper
+                parameter function built into interfere methods.
+            store_preds (bool): Toggles if hyper parameter opt predictions 
+                should be stored. If True, predictions are accessible in self.
+                trial_preds.
+
+
+        Example:
+
+            If train_states has 100 observations,
+        
+            Setting
+                initial_train_precent = 0.40
+                val_precent = 0.20
+                num_folds = 3
+                num_val_prior_states = 5
+
+            Produces the following folds.
+
+            (Fold 1) 
+                |<- Initial training data     ->|   |   | V.I.C| Val states |
+                40 train obs, 5 val initial condition obs and 15 val obs.
+
+            (Fold 2)
+                |<-   Fold 2 training data       ->|   | V.I.C| Val states |
+                60 train obs, 5 val initial condition obs and 15 val obs.
+
+            (Fold 3)
+                |<-       Fold 3 training data       ->| V.I.C| Val states |
+                80 train obs, 5 val initial condition obs and 15 val obs.
+
+                
+            (V.I.C stands for validation initial condition.)
+        """
+        if initial_fold_percent + val_percent > 1.0:
+            raise ValueError(
+                f"Initial fold percent ({initial_fold_percent}) + validation "
+                f"percent ({val_percent}) cannot be greater than 1."
+            )
+
+        num_train_obs, _  = train_states.shape
+
+        # Compute size of validation set.
+        val_set_num_obs = int(floor(num_train_obs * val_percent))
+
+        # Split the fold states from validation states.
+        fold_set = train_states[:-val_set_num_obs, :]
+        val_set = train_states[-val_set_num_obs:, :]
+
+        # Split prior val states from val states.
+        val_prior_states = val_set[:num_val_prior_states, :]
+        val_states = val_set[num_val_prior_states:, :]
+        num_val_states, _ = val_states.shape
+
+
+        # Compute number of obs in the first fold.
+        initial_fold_num_obs = int(
+            floor(num_train_obs * initial_fold_percent))
+        
+        # Compute how many obs to add in the successive folds.
+        num_fold_set_obs, _ = fold_set.shape
+        num_addit_obs_per_fold = floor(
+            (num_fold_set_obs - initial_fold_num_obs) / num_folds)
+
+        self.val_percent = val_percent
+        self.initial_fold_percent = initial_fold_percent
+        self.num_folds = num_folds
+        self.num_fold_set_obs = num_fold_set_obs
+        self.initial_fold_num_obs = initial_fold_num_obs
+        self.num_addit_obs_per_fold = num_addit_obs_per_fold
+        self.val_set_num_obs = val_set_num_obs
+        self.num_val_prior_states = num_val_prior_states
+        self.num_val_states = num_val_states
+        self.metric = metric
+        self.metric_direction = metric_direction
+        self.hyperparam_func = hyperparam_func
+        self.store_preds = store_preds
+
+        self.description = (                
+            "\n\nParameters:"
+                f"\tval_percent={val_percent}"
+                f"\tinitial_fold_percent={initial_fold_percent}"
+                f"\tnum_folds={num_folds}"
+
+            "\n\nSplits:"
+                f"\tFold set obs = {num_fold_set_obs}"
+                    f"\t\tInitial fold obs = {initial_fold_num_obs}"
+                    f"\t\tAdditional obs per fold = {num_addit_obs_per_fold}"
+                f"\tVal set obs = {val_set_num_obs}"
+                    f"\t\t Val set num prior states {num_val_prior_states}"
+                    f"\t\t Val set num test states {num_val_states}"
+        )
+
+        
+        if (num_addit_obs_per_fold == 0) and (num_folds != 1):
+            raise ValueError("Not enough folds created." + self.description)
+                
+        if num_val_states <= 1:
+            raise ValueError(
+                "Need at least 2 validation test states." + self.description)
+        
+        if hyperparam_func is None:
+            hyperparam_func = method_type._get_optuna_params 
+
+        # Collect folds into a list.
+        self.folds = [
+            fold_set[:(initial_fold_num_obs + i *num_addit_obs_per_fold)] 
+            for i in range(num_folds)
+        ]
+        self.val_states = val_states
+        self.val_prior_states = val_prior_states
+        
