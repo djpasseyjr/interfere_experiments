@@ -10,7 +10,7 @@ import pytest
 
 DEFAULT_CV_ARGS = {
     "method_type": interfere.methods.VAR,
-    "data": np.random.rand(100, 2),
+    "data": np.random.rand(100, 3),
     "times": np.arange(100),
     "train_window_percent": 0.6,
     "num_folds": 3,
@@ -353,12 +353,15 @@ def test_cvr_cv_init_raises():
 
 
 @pytest.mark.parametrize("val_scheme", ["forecast", "last", "all"])
-def test_cvr_cv_call(val_scheme: str):
+@pytest.mark.parametrize("interv", [None, interfere.PerfectIntervention(0, 1)])
+def test_cvr_cv_call(
+    val_scheme: str,interv: interfere.interventions.ExogIntervention):
     """Tests the __call__ method of the CVRCrossValObjective class.
 
     Args:
         val_scheme: The validation scheme to use. One of ["forecast",
             "last", "all].
+        interv (interfere.interventions.ExogIntervention): An intervention.
     """
     # Build a mock method type.
     mock_method = Mock()
@@ -376,6 +379,7 @@ def test_cvr_cv_call(val_scheme: str):
         "hyperparam_func": Mock(return_value={}),
         "store_preds": True,
         "val_scheme": val_scheme,
+        "intervention": interv
     })
 
     # Make a mock trial.
@@ -450,19 +454,23 @@ def test_cvr_cv_call(val_scheme: str):
 
 
 @pytest.mark.parametrize("val_scheme", ["forecast", "last", "all"])
-def test_cvr_cv_call_no_store_preds(val_scheme: str):
+@pytest.mark.parametrize("interv", [None, interfere.PerfectIntervention(0, 1)])
+def test_cvr_cv_call_no_store_preds(
+    val_scheme: str,interv: interfere.interventions.ExogIntervention):
     """Tests the __call__ method of the CVRCrossValObjective class when
     store_preds is False.
 
     Args:
         val_scheme: The validation scheme to use. One of ["forecast",
             "last", "all].
+        interv (interfere.interventions.ExogIntervention): An intervention.
     """
     cv = CVRCrossValObjective(**{
         **DEFAULT_CV_ARGS,
         "store_preds": False,
         "val_scheme": val_scheme,
         "hyperparam_func": Mock(return_value={}),
+        "intervention": interv
     })
 
     # Make a mock trial.
@@ -567,7 +575,7 @@ def test_cvr_cv_call_methods(
     """
     cv = CVRCrossValObjective(**{
         **DEFAULT_CV_ARGS,
-        "data": np.random.rand(600, 2),
+        "data": np.random.rand(600, 3),
         "times": np.arange(600),
         "train_window_percent": 0.5,
         "num_folds": 4,
