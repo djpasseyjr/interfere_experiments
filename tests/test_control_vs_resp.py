@@ -745,3 +745,44 @@ def test_global_pred_cv_init(init_args: Dict[str, Any]):
         f"\n\tProduced {global_cv.val_prior_states.shape}"
     )
 
+
+@pytest.mark.parametrize("method_type", METHODS)
+def test_global_pred_cv_call(
+    method_type: interfere.ForecastMethod
+):
+    """Tests that the global prediction cross validation works as an objective.
+    
+    Args:
+        method_type (ForecastMethod): An interfere forecast method.
+    """
+
+    n_obs, dt = 100, 0.5
+    t = np.arange(0, dt * n_obs, dt)
+    belozy_states = ie.quick_models.gut_check_belozyorov().simulate(
+        t, np.array([0.5, 0.1, 0.1])
+    )
+    n_cols = belozy_states.shape[1]
+
+    default_args = {
+        "train_states": belozy_states,
+        "train_times": t,
+        "initial_fold_percent": 0.4,
+        "val_percent": 0.3,
+        "num_folds": 2,
+        "num_val_prior_states": 5,
+        "hyperparam_func": MagicMock(return_value={})
+    }
+
+    global_cv = ie.control_vs_resp.GlobalPredictionCV(
+        method_type,
+        **default_args
+    )
+
+    idx = 3
+    mock_trial = Mock()
+    mock_trial.number = idx
+    score = global_cv(mock_trial)
+
+    assert not np.isnan(score), (
+        f"{global_cv.trial_results[idx]}"
+    )
