@@ -583,6 +583,3 @@ def test_cvr_cv_call_methods(
     score = study.best_value
 
     assert isinstance(score, float)
-
-
-test_cvr_cv_call_methods(interfere.methods.VAR, "last")
