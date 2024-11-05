@@ -1,8 +1,10 @@
 from dataclasses import dataclass
-from math import floor
+import datetime
+import json
+from pathlib import Path
 from tempfile import TemporaryFile
 import traceback
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 
 import PIL.Image
 
@@ -150,6 +152,92 @@ class ControlVsRespData:
         equal = equal and (self.intervention == other.intervention)
 
         return equal
+    
+
+    def json_metadata(self):
+        """Generates metadata for JSON export."""
+        return {
+                "overview": """This dataset contains simulated timeseries data.It contains observational data followed by a control scenario (classical forecast problem) and an intervention response scenario (causal prediction problem). The name, type and a description of each variable are contained under ['metadata']['variables']. Typing is specified according to the python `typing` library. The date_created field is formatted as D/M/Y H:M:S.""",
+                "date_created": datetime.datetime.now().strftime(
+                    "%d/%m/%Y %H:%M:%S"),
+                "variables": [
+                    {
+                        "name": "model_description",
+                        "type": "str",
+                        "description": "A string of text describing the dynami  model that underlies the data generating process. May include equations, references, parameter values and parameter descriptions."
+                    },
+                    {
+                        "name": "train_states", 
+                        "type": "List[List[float]]", 
+                        "description": "An mxn list of lists. Rows are observations, columns are variables. Observational data that occurs directly prior to forecast_states and intervention_states."
+                    },
+                    {
+                        "name": "train_times", 
+                        "type": "List[float]",
+                        "description": "A list with length m. Contains the times corresponding to each observation in (row of) train_states."
+                    },
+                    {
+                        "name": "forecast_states",
+                        "type": "List[List[float]]",
+                        "description": "An kxn list of lists. Rows are observations, columns are variables. Data that occurs directly after the training data in abscence of an intervention."
+                    },
+                    {
+                        "name": "forecast_times", 
+                        "type": "List[float]",
+                        "description": "A list with length k. Contains the times corresponding to each observation in (row of) forecast_states."
+                    },
+                    {
+                        "name": "response_states",
+                        "type": "List[List[float]]",
+                        "description": "An kxn list of lists. Rows are observations, columns are variables. Data that occurs directly after the training data in response to the perfect intervention."
+                    },
+                    {
+                        "name": "response_times", 
+                        "type": "List[float]",
+                        "description": "A list with length k. Contains the times corresponding to each observation in (row of) response_states."
+                    },
+                    {
+                        "name": "intervention_idxs", 
+                        "type": "List[int]",
+                        "description": "The zero based column index that corresponds to the variable that was manipulated to produce response_states."
+                    },
+                    {
+                        "name": "intervention_states", 
+                        "type": "List[List[float]]",
+                        "description": "A kxp array where k is the length of forecast_times and p is the length of intervention_idxs. Each column corresponds to the indexes in intervention_idxs. To generate response_states, the variables at intervention_idxs are treated as exogenous and simulated with the values contained in this array. These should be used to as exogenous data when attempting to predict response_states. Additionally, response_states[: intervention_idxs] == intervention_states[:, :]"
+                    }
+                ]
+            }
+    
+
+    def to_json(self, file_path: Union[str, Path], model_description: str = ""):
+        """Export ControlVsRespData to JSON.
+
+        Args:
+            model_description (str): Optional description of the model that     
+                generated the data.
+        """
+        # Build dictionary of data
+        idxs = self.intervention.intervened_idxs
+        interv_initial = list(self.interv_states[0, idxs])
+        interv_exog = self.intervention.eval_at_times(self.forecast_t[1:])
+        interv_exog = np.reshape(interv_exog, (-1, len(idxs))).tolist()
+        intervention_states = [interv_initial] + interv_exog
+        cvr_dict = {
+            "metadata": self.json_metadata(),
+            "model_description": model_description,
+            "train_states": self.train_states.tolist(),
+            "train_times": self.train_t.tolist(),
+            "forecast_states": self.forecast_states.tolist(),
+            "forecast_times": self.forecast_t.tolist(),
+            "response_states": self.interv_states.tolist(),
+            "response_times": self.forecast_t.tolist(),
+            "intervention_idxs": idxs,
+            # Combine intervention states with initial condition.
+            "intervention_states": intervention_states
+        }
+        with open(file_path, "w") as f:
+            json.dump(cvr_dict, f)
         
 
 def generate_data(

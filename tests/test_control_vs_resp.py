@@ -1,3 +1,5 @@
+import json
+import tempfile
 from typing import Any, Dict, Iterable
 from unittest.mock import Mock, MagicMock
 
@@ -25,9 +27,9 @@ GEN_DATA_ARGS = [
     },
     {
         "model": ie.quick_models.gut_check_coupled_logistic(),
-        "num_train_obs": 10,
+        "num_train_obs": 15,
         "num_forecast_obs": 5,
-        "timestep": 1,
+        "timestep": 1.0,
         "intervention": interfere.PerfectIntervention(2, 0.2),
         "rng": RNG,
         "train_prior_states": None,
@@ -35,10 +37,10 @@ GEN_DATA_ARGS = [
     },
     {
         "model": ie.quick_models.gut_check_coupled_logistic(),
-        "num_train_obs": 10,
+        "num_train_obs": 15,
         "num_forecast_obs": 5,
         "timestep": 1,
-        "intervention": interfere.PerfectIntervention(2, 0.2),
+        "intervention": interfere.PerfectIntervention([2, 3], [0.2, 0.5]),
         "rng": RNG,
         "train_prior_states": RNG.random((3, 10)),
         "lags": 10,
@@ -107,6 +109,55 @@ def test_control_vs_resp_data_shape():
             train_prior_t, train_prior_states, train_t, bad_train_states,
             forecast_t, forecast_states, intervention, interv_states
         )
+
+@pytest.mark.parametrize("cvr_data", CTRL_V_RESP_DATA)
+def test_cvr_data_to_json(cvr_data: ie.control_vs_resp.ControlVsRespData):
+    """Tests that ControlVsRespData exports to JSON correctly.
+    
+    Args:
+        cvr_data (interfere_experiments.control_vs_resp.ControlVsRespData): An  
+            instance of ControlVsRespData to test export with.
+    """
+    temp = tempfile.NamedTemporaryFile()
+    cvr_data.to_json(temp.name, model_description="Descr")
+
+    with open(temp.name, "r") as f:
+        loaded_json = json.load(f)
+
+    # Check that arrays  match.
+    assert np.all(np.array(
+        loaded_json["train_states"]) == cvr_data.train_states)
+    assert np.all(np.array(
+        loaded_json["train_times"]) == cvr_data.train_t)
+    assert np.all(np.array(
+        loaded_json["forecast_states"]) == cvr_data.forecast_states)
+    assert np.all(np.array(
+        loaded_json["forecast_times"]) == cvr_data.forecast_t)
+    resp_states = np.array(loaded_json["response_states"])
+    assert np.all(resp_states == cvr_data.interv_states)
+    assert np.all(np.array(
+        loaded_json["response_times"]) == cvr_data.forecast_t)
+    
+    # Check that intervention corresponds with response states.
+    idxs = loaded_json["intervention_idxs"]
+    interv_states = np.array(loaded_json["intervention_states"])
+    resp_states = np.reshape(resp_states[:, idxs], (-1, len(idxs)))
+    assert np.allclose(resp_states, interv_states, atol=0.05), (
+        "Intervention states do not match columns in response:"
+        f"\n\tresponse_states = {resp_states}"
+        f"\n\tintervention_states = {interv_states}"
+    )
+
+    # Check that each variable has a description.
+    var_names = [var["name"] for var in loaded_json["metadata"]["variables"]]
+    var_desrc_sym_diff = set(
+        var_names + ["metadata"]).symmetric_difference(
+            set(loaded_json.keys())
+        )
+    assert len(var_desrc_sym_diff) == 0, (
+        f"Missing or extra variable description: {var_desrc_sym_diff} "
+    )
+    assert(loaded_json["model_description"] == "Descr")
 
 
 @pytest.mark.parametrize(
@@ -659,23 +710,4 @@ def test_optuna_obj_pred_storing():
         f"{objective.trial_preds[idx]}"
     )
 
-INIT_ARGS = [
-    dict(
-        initial_fold_percent = 0.2,
-        val_percent = 0.2,
-        num_folds = 2,
-        num_val_prior_states = 2,
-    ),
-    dict(
-        initial_fold_percent = 0.1,
-        val_percent = 0.2,
-        num_folds = 8,
-        num_val_prior_states = 2,
-    ),
-    dict(
-        initial_fold_percent = 0.2,
-        val_percent = 0.4,
-        num_folds = 1,
-        num_val_prior_states = 2,
-    ),
-]
+test_predict_array_shapes(CTRL_V_RESP_DATA[1], METHODS[0])
