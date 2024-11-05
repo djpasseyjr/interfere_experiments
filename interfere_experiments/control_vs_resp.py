@@ -272,8 +272,8 @@ def generate_data(
     if train_prior_states is None:
         train_prior_states = rng.random((lags, model.dim))
     else:
-        if len(train_prior_states.shape) != 2 | \
-            train_prior_states.shape[1] != model.dim:
+        if (len(train_prior_states.shape) != 2) | \
+            (train_prior_states.shape[1] != model.dim):
             raise ValueError(
                 "The train_prior_states argument must be two dimensional and "
                 "number of columns must match the dimension of the passed "
