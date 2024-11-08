@@ -13,7 +13,7 @@ import interfere_experiments.control_vs_resp as control_vs_resp
 SEED = 11
 
 
-class ExperimentModel:
+class DataGenerator:
 
 
     def __init__(
@@ -27,7 +27,7 @@ class ExperimentModel:
         timestep: float = 1,
         rng = np.random.default_rng(SEED)
     ):
-        """Initializes an ExperimentModel for generating data.
+        """Initializes an DataGenerator for generating data.
 
         Args:
             model_type (Type[interfere.DynamicModel]): The type of the model to
@@ -77,7 +77,7 @@ class ExperimentModel:
         )
 
 
-class ArithmeticBrownianMotion(ExperimentModel):
+class ArithmeticBrownianMotion(DataGenerator):
 
 
     def __init__(self):
@@ -87,7 +87,7 @@ class ArithmeticBrownianMotion(ExperimentModel):
                 "mu": np.array([0.1, -0.3, 0.06, -0.01, -0.2,
                                 -0.05, 0.15, 0.22, -0.17, -0.01]), 
                 "sigma": np.zeros(10),
-                "measurement_noise_std": 0.3 * np.ones(10)
+                "measurement_noise_std": 0.1 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 4.0},
@@ -100,19 +100,19 @@ class ArithmeticBrownianMotion(ExperimentModel):
                   0.61435139, -0.67821191]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
 
-class AttractingFixedPoint4D(ExperimentModel):
+class AttractingFixedPoint4D(DataGenerator):
 
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.attracting_fixed_point_4d_linear_sde,
-            model_params={"sigma": 0.0, "measurement_noise_std": 0.3 * np.ones(4)},
+            model_params={"sigma": 0.0, "measurement_noise_std": 0.1 * np.ones(4)},
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 4.0},
             initial_condition=np.array([
@@ -120,12 +120,12 @@ class AttractingFixedPoint4D(ExperimentModel):
                 [ 0.61719957, -0.9664203 ,  0.12427135, -0.59981189]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class Belozyorov1(ExperimentModel):
+class Belozyorov1(DataGenerator):
 
 
     def __init__(self):
@@ -143,12 +143,12 @@ class Belozyorov1(ExperimentModel):
                 [0.8102566 ,  0.10224813, -0.35046573]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class Belozyorov2(ExperimentModel):
+class Belozyorov2(DataGenerator):
 
 
     def __init__(self):
@@ -166,12 +166,12 @@ class Belozyorov2(ExperimentModel):
                 [0.8102566 ,  0.10224813, -0.35046573]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class Belozyorov3(ExperimentModel):
+class Belozyorov3(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -188,12 +188,12 @@ class Belozyorov3(ExperimentModel):
                 [0.8102566 ,  0.10224813, -0.35046573]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class CoupledLogisticMapAllToAll(ExperimentModel):
+class CoupledLogisticMapAllToAll(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -219,7 +219,7 @@ class CoupledLogisticMapAllToAll(ExperimentModel):
         )
 
 
-class CoupledLogisticMapTwoCycles(ExperimentModel):
+class CoupledLogisticMapTwoCycles(DataGenerator):
 
 
     def __init__(self):
@@ -257,7 +257,7 @@ class CoupledLogisticMapTwoCycles(ExperimentModel):
         )
 
 
-class CoupledLogisticMapTwoCycles2(ExperimentModel):
+class CoupledLogisticMapTwoCycles2(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -294,7 +294,7 @@ class CoupledLogisticMapTwoCycles2(ExperimentModel):
         )
 
 
-class CoupledMapLatticeChaoticBrownian(ExperimentModel):
+class CoupledMapLatticeChaoticBrownian(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -302,7 +302,7 @@ class CoupledMapLatticeChaoticBrownian(ExperimentModel):
             model_params={
                 "dim": 10,
                 "sigma": 0.0,
-                "measurement_noise_std": 0.05 * np.ones(10)
+                "measurement_noise_std": 0.01 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
@@ -318,7 +318,7 @@ class CoupledMapLatticeChaoticBrownian(ExperimentModel):
         )
 
 
-class CoupledMapLatticeChaoticTravelingWave(ExperimentModel):
+class CoupledMapLatticeChaoticTravelingWave(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -326,7 +326,7 @@ class CoupledMapLatticeChaoticTravelingWave(ExperimentModel):
             model_params={
                 "dim": 10,
                 "sigma": 0.0,
-                "measurement_noise_std": 0.05 * np.ones(10)
+                "measurement_noise_std": 0.01 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 0.5},
@@ -342,7 +342,7 @@ class CoupledMapLatticeChaoticTravelingWave(ExperimentModel):
         )
 
 
-class CoupledMapLatticeDefectTurbulence(ExperimentModel):
+class CoupledMapLatticeDefectTurbulence(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -366,7 +366,7 @@ class CoupledMapLatticeDefectTurbulence(ExperimentModel):
         )
 
 
-class CoupledMapLatticePatternSelection(ExperimentModel):
+class CoupledMapLatticePatternSelection(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -374,7 +374,7 @@ class CoupledMapLatticePatternSelection(ExperimentModel):
             model_params={
                 "dim": 10,
                 "sigma": 0.0,
-                "measurement_noise_std": 0.02 * np.ones(10),
+                "measurement_noise_std": 0.01 * np.ones(10),
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
@@ -390,7 +390,7 @@ class CoupledMapLatticePatternSelection(ExperimentModel):
         )
 
 
-class CoupledMapLatticeSpatioTempChaos(ExperimentModel):
+class CoupledMapLatticeSpatioTempChaos(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -398,7 +398,7 @@ class CoupledMapLatticeSpatioTempChaos(ExperimentModel):
             model_params={
                 "dim": 10,
                 "sigma": 0.0,
-                "measurement_noise_std": 0.05 * np.ones(10)
+                "measurement_noise_std": 0.01 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
@@ -414,7 +414,7 @@ class CoupledMapLatticeSpatioTempChaos(ExperimentModel):
         )
 
 
-class CoupledMapLatticeSpatioTempIntermit(ExperimentModel):
+class CoupledMapLatticeSpatioTempIntermit(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -422,7 +422,7 @@ class CoupledMapLatticeSpatioTempIntermit(ExperimentModel):
             model_params={
                 "dim": 10,
                 "sigma": 0.0,
-                "measurement_noise_std": 0.05 * np.ones(10)
+                "measurement_noise_std": 0.01 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 0.5},
@@ -438,7 +438,7 @@ class CoupledMapLatticeSpatioTempIntermit(ExperimentModel):
         )
 
 
-class CoupledMapLatticeTravelingWave(ExperimentModel):
+class CoupledMapLatticeTravelingWave(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -446,7 +446,7 @@ class CoupledMapLatticeTravelingWave(ExperimentModel):
             model_params={
                 "dim": 10,
                 "sigma": 0.0,
-                "measurement_noise_std": 0.05 * np.ones(10)
+                "measurement_noise_std": 0.01 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 0.5},
@@ -462,13 +462,13 @@ class CoupledMapLatticeTravelingWave(ExperimentModel):
         )
 
 
-class DampedOscillator1(ExperimentModel):
+class DampedOscillator1(DataGenerator):
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.DampedOscillator,
             model_params={"m": 1.0, "c": 2, "k": 10, "sigma": 0,
-                          "measurement_noise_std": 0.1 * np.ones(2)},
+                          "measurement_noise_std": 0.05 * np.ones(2)},
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
@@ -476,17 +476,17 @@ class DampedOscillator1(ExperimentModel):
                 [-0.23292231, -0.69167961]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class DampedOscillator2(ExperimentModel):
+class DampedOscillator2(DataGenerator):
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.DampedOscillator,
-            model_params={"m": 30.0, "c": 0.5, "k": 2, "sigma": 0, "measurement_noise_std": 0.1 * np.ones(2)},
+            model_params={"m": 30.0, "c": 0.5, "k": 2, "sigma": 0, "measurement_noise_std": 0.05 * np.ones(2)},
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
@@ -494,19 +494,19 @@ class DampedOscillator2(ExperimentModel):
                 [-0.23292231, -0.69167961]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class GeometricBrownianMotion1(ExperimentModel):
+class GeometricBrownianMotion1(DataGenerator):
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.GeometricBrownianMotion,
             model_params={
                 "mu": np.array([
-                    -0.2, 0.003, -10, -0.0007, -1.3, -6, -0.8, -7, -0.38, -99.0]),
+                    -0.2, 0.003, -10, -0.0007, -1.3, -6, -0.8, -7, -0.38, -20.0]),
                 "sigma": np.zeros(10),
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
@@ -519,19 +519,19 @@ class GeometricBrownianMotion1(ExperimentModel):
         -0.53039582,  0.91781623, -0.24832396, -0.27500764,  0.37978088]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class GeometricBrownianMotion2(ExperimentModel):
+class GeometricBrownianMotion2(DataGenerator):
     
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.GeometricBrownianMotion,
             model_params={
                 "mu": np.array([
-                    -0.2, 0.003, -10, -0.0007, -1.3, -6, -0.8, -7, -0.38, -99.0
+                    -0.2, 0.003, -10, -0.0007, -1.3, -6, -0.8, -7, -0.38, -20.0
                 ]),
                 "sigma": np.zeros(10),
                 "measurement_noise_std": 0.01 * np.ones(10)
@@ -545,12 +545,12 @@ class GeometricBrownianMotion2(ExperimentModel):
         -0.53039582,  0.91781623, -0.24832396, -0.27500764,  0.37978088]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class HodgkinHuxley1(ExperimentModel):
+class HodgkinHuxley1(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -583,7 +583,7 @@ class HodgkinHuxley1(ExperimentModel):
         )
 
 
-class HodgkinHuxley2Chain(ExperimentModel):
+class HodgkinHuxley2Chain(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -617,7 +617,7 @@ class HodgkinHuxley2Chain(ExperimentModel):
         )
 
 
-class HodgkinHuxley3Grid(ExperimentModel):
+class HodgkinHuxley3Grid(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -650,14 +650,14 @@ class HodgkinHuxley3Grid(ExperimentModel):
         )
 
 
-class ImaginaryRoots4D(ExperimentModel):
+class ImaginaryRoots4D(DataGenerator):
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.imag_roots_4d_linear_sde,
             model_params={
                 "sigma": 0,
-                "measurement_noise_std": np.ones(4)
+                "measurement_noise_std": 0.01 * np.ones(4)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
@@ -666,12 +666,12 @@ class ImaginaryRoots4D(ExperimentModel):
                 [0.32654883, 0.8377457 , 0.82375113, 0.23435478]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class KuramotoOscilator1(ExperimentModel):
+class KuramotoOscilator1(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -696,7 +696,7 @@ class KuramotoOscilator1(ExperimentModel):
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
                 ]),
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(10)
+                "measurement_noise_std": 0.05 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
@@ -707,12 +707,12 @@ class KuramotoOscilator1(ExperimentModel):
             -0.49706574, -0.64154586,  0.29474006, -0.05792134,  0.14611772]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class KuramotoOscilator2(ExperimentModel):
+class KuramotoOscilator2(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -737,7 +737,7 @@ class KuramotoOscilator2(ExperimentModel):
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                 ]),
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(10)
+                "measurement_noise_std": 0.05 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
@@ -748,12 +748,12 @@ class KuramotoOscilator2(ExperimentModel):
             -0.49706574, -0.64154586,  0.29474006, -0.05792134,  0.14611772]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class KuramotoSakaguchi1(ExperimentModel):
+class KuramotoSakaguchi1(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -790,7 +790,7 @@ class KuramotoSakaguchi1(ExperimentModel):
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
                 ]),
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(10)
+                "measurement_noise_std": 0.05 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
@@ -801,12 +801,12 @@ class KuramotoSakaguchi1(ExperimentModel):
             -0.49706574, -0.64154586,  0.29474006, -0.05792134,  0.14611772]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class KuramotoSakaguchi2(ExperimentModel):
+class KuramotoSakaguchi2(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -843,7 +843,7 @@ class KuramotoSakaguchi2(ExperimentModel):
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
                 ]),
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(10)
+                "measurement_noise_std": 0.05 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
@@ -855,12 +855,12 @@ class KuramotoSakaguchi2(ExperimentModel):
             -6.19053276e-01, -3.81994300e-01]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class KuramotoSakaguchi3(ExperimentModel):
+class KuramotoSakaguchi3(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -895,7 +895,7 @@ class KuramotoSakaguchi3(ExperimentModel):
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                 ]),
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(10)
+                "measurement_noise_std": 0.05 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.5},
@@ -904,19 +904,19 @@ class KuramotoSakaguchi3(ExperimentModel):
                 [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class Liping3DQuadFinance(ExperimentModel):
+class Liping3DQuadFinance(DataGenerator):
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.Liping3DQuadFinance,
             model_params={
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(3)
+                "measurement_noise_std": 0.05 * np.ones(3)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": -0.1},
@@ -925,12 +925,12 @@ class Liping3DQuadFinance(ExperimentModel):
                 [-1.45612385,  0.54978974, -1.72199022]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class LotkaVoltera1(ExperimentModel):
+class LotkaVoltera1(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -954,7 +954,7 @@ class LotkaVoltera1(ExperimentModel):
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                 ]),
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(10)
+                "measurement_noise_std": 0.05 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 5.0},
@@ -965,12 +965,12 @@ class LotkaVoltera1(ExperimentModel):
                 0.15525796, 0.8760932 , 3.84472739, 8.42631288, 4.27621899]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class LotkaVoltera2(ExperimentModel):
+class LotkaVoltera2(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -993,7 +993,7 @@ class LotkaVoltera2(ExperimentModel):
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
                 ]),
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(10),
+                "measurement_noise_std": 0.05 * np.ones(10),
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 5.0},
@@ -1004,12 +1004,12 @@ class LotkaVoltera2(ExperimentModel):
                 0.15525796, 0.8760932 , 3.84472739, 8.42631288, 4.27621899]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class LotkaVoltera3(ExperimentModel):
+class LotkaVoltera3(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -1031,7 +1031,7 @@ class LotkaVoltera3(ExperimentModel):
                     [0., 0., 1., 0., 0., 1., 0., 0., 1., 0.]
                 ]),
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(10)
+                "measurement_noise_std": 0.05 * np.ones(10)
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 10.0},
@@ -1042,12 +1042,12 @@ class LotkaVoltera3(ExperimentModel):
                 0.15525796, 0.8760932 , 3.84472739, 8.42631288, 4.27621899]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class LotkaVoltera4(ExperimentModel):
+class LotkaVoltera4(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -1070,7 +1070,7 @@ class LotkaVoltera4(ExperimentModel):
                     [0., 1., 0., 0., 0., 0., 0., 1., 1., 0.]
                 ]),
                 "sigma": 0,
-                "measurement_noise_std": 0.25 * np.ones(10)},
+                "measurement_noise_std": 0.05 * np.ones(10)},
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 10.0},
             initial_condition=np.array([
@@ -1080,12 +1080,12 @@ class LotkaVoltera4(ExperimentModel):
                 0.15525796, 0.8760932 , 3.84472739, 8.42631288, 4.27621899]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
     
-class OrnsteinUhlenbeck1(ExperimentModel):
+class OrnsteinUhlenbeck1(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -1100,7 +1100,7 @@ class OrnsteinUhlenbeck1(ExperimentModel):
             [-0.26653658,  0.37562803,  0.9497738 , -0.87463056,  5.19931559]
             ]),
                 "sigma": np.zeros((5, 5)),
-                "measurement_noise_std": 0.25 * np.ones(5)},
+                "measurement_noise_std": 0.05 * np.ones(5)},
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 2.0},
             initial_condition=np.array([
@@ -1108,12 +1108,12 @@ class OrnsteinUhlenbeck1(ExperimentModel):
                 [-2.47019708, -0.75337922, -0.29746292,  1.1320844 ,  1.91501353]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class OrnsteinUhlenbeck2(ExperimentModel):
+class OrnsteinUhlenbeck2(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -1133,7 +1133,7 @@ class OrnsteinUhlenbeck2(ExperimentModel):
         -5.82372371e-02,  1.50686365e-01]
             ]),
                 "sigma": np.zeros((5, 5)),
-                "measurement_noise_std": 0.25 * np.ones(5)},
+                "measurement_noise_std": 0.05 * np.ones(5)},
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 2.0},
             initial_condition=np.array([
@@ -1141,12 +1141,12 @@ class OrnsteinUhlenbeck2(ExperimentModel):
                 [-2.47019708, -0.75337922, -0.29746292,  1.1320844 ,  1.91501353]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class OrnsteinUhlenbeck3(ExperimentModel):
+class OrnsteinUhlenbeck3(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -1162,7 +1162,7 @@ class OrnsteinUhlenbeck3(ExperimentModel):
                     [-1.38060408,  0.89830353,  1.51043686, -1.33664886,  7.8666837 ]
                 ]),
                 "sigma": np.zeros((5, 5)),
-                "measurement_noise_std": 0.25 * np.ones(5)},
+                "measurement_noise_std": 0.05 * np.ones(5)},
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 2.0},
             initial_condition=np.array([
@@ -1170,12 +1170,12 @@ class OrnsteinUhlenbeck3(ExperimentModel):
                 [ 0.6928484 , -2.09602794, -0.69285883, -1.87164538,  1.95915625]
             ]),
             start_time=0,
-            timestep=0.001,
+            timestep=0.05,
             rng = np.random.default_rng(SEED)
         )
 
 
-class VARMA1SpatiotempChaos(ExperimentModel):
+class VARMA1SpatiotempChaos(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -1377,7 +1377,7 @@ class VARMA1SpatiotempChaos(ExperimentModel):
                         0.126 , 0.053 ],
                     [0.0635, 0.0599, 0.0707, 0.0617, 0.028 , 0.054 , 0.066 , 0.063 ,
                         0.053 , 0.0708]]),
-                "measurement_noise_std": 0.2 * np.ones(10),
+                "measurement_noise_std": 0.05 * np.ones(10),
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 1.5},
@@ -1393,7 +1393,7 @@ class VARMA1SpatiotempChaos(ExperimentModel):
         )
 
 
-class VARMA2ChaoticBrownian(ExperimentModel):
+class VARMA2ChaoticBrownian(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -1538,7 +1538,7 @@ class VARMA2ChaoticBrownian(ExperimentModel):
                     -0.00275159,  0.06888583, -0.05430875, -0.01121112,
                     -0.01905778,  0.04851025],
                     [-0.02016775, -0.09004448, -0.07506339, -0.07673776,
-                    0.00186852,  0.01764962,  0.0728478 ,  0.0433706 ,
+                    0.0586852,  0.01764962,  0.0728478 ,  0.0433706 ,
                     0.15285229, -0.02034979],
                     [-0.20230409, -0.15342485, -0.03207973, -0.44317144,
                     0.23136883,  0.07756882,  0.47048785,  0.23927052,
@@ -1595,7 +1595,7 @@ class VARMA2ChaoticBrownian(ExperimentModel):
                     -0.0238,  0.1206,  0.0352],
                 [ 0.0811, -0.026 ,  0.0451,  0.028 ,  0.0441,  0.0649, -0.0238,
                     0.0603,  0.0352,  0.1128]]),
-                "measurement_noise_std": 0.2 * np.ones(10),
+                "measurement_noise_std": 0.05 * np.ones(10),
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 1.5},
@@ -1611,7 +1611,7 @@ class VARMA2ChaoticBrownian(ExperimentModel):
         )
 
 
-class VARMA3LotkaVoltera(ExperimentModel):
+class VARMA3LotkaVoltera(DataGenerator):
 
     def __init__(self):
         super().__init__(
@@ -1831,7 +1831,7 @@ class VARMA3LotkaVoltera(ExperimentModel):
                     0.2635, -0.016 , -0.0115],
                 [ 0.0005, -0.0074,  0.254 , -0.0264,  0.0054,  0.0005,  0.2635,
                     -0.016 , -0.0115,  0.0142],
-                [-0.0074,  0.254 , -0.0132,  0.0054,  0.001 ,  0.2635, -0.016 ,
+                [-0.0074,  0.254 , -0.0132,  0.0054,  0.05 ,  0.2635, -0.016 ,
                     -0.0115,  0.0142,  0.0068],
                 [ 0.254 , -0.0132,  0.0054,  0.0005,  0.2635, -0.032 , -0.0115,
                     0.0142,  0.0068,  0.2479],
@@ -1840,10 +1840,10 @@ class VARMA3LotkaVoltera(ExperimentModel):
                 [ 0.0054,  0.0005,  0.2635, -0.016 , -0.0115,  0.0142,  0.0068,
                     0.4958,  0.0051, -0.0053],
                 [ 0.0005,  0.2635, -0.016 , -0.0115,  0.0142,  0.0068,  0.2479,
-                    0.0051, -0.0106, -0.0016],
+                    0.0051, -0.0106, -0.056],
                 [ 0.2635, -0.016 , -0.0115,  0.0142,  0.0068,  0.2479,  0.0051,
-                    -0.0053, -0.0016,  0.0006]]),
-                "measurement_noise_std": 0.2 * np.ones(10),
+                    -0.0053, -0.056,  0.0006]]),
+                "measurement_noise_std": 0.05 * np.ones(10),
             },
             intervention_type=interfere.PerfectIntervention,
             intervention_params={"intervened_idxs": 0, "constants": 1.5},
