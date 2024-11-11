@@ -8,8 +8,8 @@ import interfere_experiments as ie
 import numpy as np
 import optuna
 
-DATA_DIR = "/Users/djpassey/Google Drive/My Drive/Docs/PhD Research/DissertationColabs/InterfereBenchmark0.0.1/" #"/nas/longleaf/home/djpassey/InterfereBenchmark0.0.1/"
-SAVE_DIR = ""# "/work/users/d/j/djpassey/interfere_exp9.0/"
+DATA_DIR = "/nas/longleaf/home/djpassey/InterfereBenchmark0.0.1/"
+SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp9.0/"
 METHODS = [
     interfere.methods.VAR,
     # interfere.methods.SINDY,
