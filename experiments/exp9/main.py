@@ -12,14 +12,14 @@ DATA_DIR = "/nas/longleaf/home/djpassey/InterfereBenchmark0.0.1/"
 SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp9.0/"
 METHODS = [
     interfere.methods.VAR,
-    # interfere.methods.SINDY,
-    # interfere.methods.ResComp,
-    # interfere.methods.LTSF,
-    # interfere.methods.NHITS,
-    # interfere.methods.LSTM
+    interfere.methods.SINDY,
+    interfere.methods.ResComp,
+    interfere.methods.LTSF,
+    interfere.methods.NHITS,
+    interfere.methods.LSTM
 ]
 OPTUNA_TRIALS_DICT = {
-    interfere.methods.VAR: 2, #51,
+    interfere.methods.VAR: 51,
     interfere.methods.SINDY: 101,
     interfere.methods.ResComp: 201,
     interfere.methods.LTSF: 101,
