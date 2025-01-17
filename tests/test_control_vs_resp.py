@@ -20,7 +20,7 @@ GEN_DATA_ARGS = [
         "num_train_obs": 10,
         "num_forecast_obs": 5,
         "timestep": 0.05,
-        "intervention": interfere.PerfectIntervention(2, 0.2),
+        "do_intervention": interfere.PerfectIntervention(2, 0.2),
         "rng": np.random.default_rng(SEED),
         "train_prior_states": None,
         "lags": 10,
@@ -30,7 +30,7 @@ GEN_DATA_ARGS = [
         "num_train_obs": 15,
         "num_forecast_obs": 5,
         "timestep": 1.0,
-        "intervention": interfere.PerfectIntervention(2, 0.2),
+        "do_intervention": interfere.PerfectIntervention(2, 0.2),
         "rng": RNG,
         "train_prior_states": None,
         "lags": 10,
@@ -40,7 +40,18 @@ GEN_DATA_ARGS = [
         "num_train_obs": 15,
         "num_forecast_obs": 5,
         "timestep": 1,
-        "intervention": interfere.PerfectIntervention([2, 3], [0.2, 0.5]),
+        "do_intervention": interfere.PerfectIntervention([2, 3], [0.2, 0.5]),
+        "rng": RNG,
+        "train_prior_states": RNG.random((3, 10)),
+        "lags": 10,
+    },
+    {
+        "model": ie.quick_models.gut_check_coupled_logistic(),
+        "num_train_obs": 15,
+        "num_forecast_obs": 5,
+        "timestep": 1,
+        "obs_intervention": interfere.PerfectIntervention(2, 0.2),
+        "do_intervention": interfere.PerfectIntervention([2, 3], [0.2, 0.5]),
         "rng": RNG,
         "train_prior_states": RNG.random((3, 10)),
         "lags": 10,
@@ -63,51 +74,56 @@ def test_control_vs_resp_data_shape():
     n_cols = 3
     train_prior_t = np.arange(n_train_prior_obs)
     train_prior_states = np.random.random((n_train_prior_obs, n_cols))
+    obs_intervention = interfere.interventions.IdentityIntervention()
     train_t = np.arange(n_train_obs)
     train_states = np.random.random((n_train_obs, n_cols))
     forecast_t = np.arange(n_forecast_obs)
     forecast_states = np.random.random((n_forecast_obs, n_cols))
     interv_states = np.random.random((n_forecast_obs, n_cols))
-    intervention = interfere.PerfectIntervention(0, 0)
+    do_intervention = interfere.PerfectIntervention(0, 0)
 
     # Bad train prior data.
     with pytest.raises(ValueError, match="train_prior_t"):
         bad_train_prior_t = np.arange(n_train_obs)
         ie.control_vs_resp.ControlVsRespData(
-            bad_train_prior_t, train_prior_states, train_t, train_states,
-            forecast_t, forecast_states, intervention, interv_states
+            bad_train_prior_t, train_prior_states, obs_intervention, train_t,
+            train_states, forecast_t, forecast_states, do_intervention, 
+            interv_states
         )
 
     # Bad train data.
     with pytest.raises(ValueError, match="train_t"):
         bad_train_t = np.arange(n_forecast_obs)
         ie.control_vs_resp.ControlVsRespData(
-            train_prior_t, train_prior_states, bad_train_t, train_states,
-            forecast_t, forecast_states, intervention, interv_states
+            train_prior_t, train_prior_states, obs_intervention, bad_train_t, 
+            train_states,forecast_t, forecast_states, do_intervention, 
+            interv_states
         )
 
     # Bad forecast data.
     with pytest.raises(ValueError, match="forecast_t"):
         bad_forecast_t = np.arange(n_train_obs)
         ie.control_vs_resp.ControlVsRespData(
-            train_prior_t, train_prior_states, train_t, train_states,
-            bad_forecast_t, forecast_states, intervention, interv_states
+            train_prior_t, train_prior_states, obs_intervention, train_t, 
+            train_states, bad_forecast_t, forecast_states, do_intervention, interv_states
         )
 
     # Bad intervention data.
     with pytest.raises(ValueError, match="interv_states"):
         bad_interv_states = np.random.random((n_train_obs, n_cols))
         ie.control_vs_resp.ControlVsRespData(
-            train_prior_t, train_prior_states, train_t, train_states,
-            forecast_t, forecast_states, intervention, bad_interv_states
+            train_prior_t, train_prior_states, obs_intervention, train_t, 
+            train_states, forecast_t, forecast_states, do_intervention, 
+            bad_interv_states
         )
 
     # Check that bad state array shape raise a ValueError.
     with pytest.raises(ValueError, match="number of columns"):
         bad_train_states = np.random.random((n_train_obs, n_cols + 1))
         ie.control_vs_resp.ControlVsRespData(
-            train_prior_t, train_prior_states, train_t, bad_train_states,
-            forecast_t, forecast_states, intervention, interv_states
+            train_prior_t, train_prior_states, obs_intervention, train_t, 
+            bad_train_states, forecast_t, forecast_states, do_intervention, 
+            interv_states
         )
 
 @pytest.mark.parametrize("cvr_data", CTRL_V_RESP_DATA)
@@ -133,19 +149,20 @@ def test_cvr_data_to_json(cvr_data: ie.control_vs_resp.ControlVsRespData):
         loaded_json["forecast_states"]) == cvr_data.forecast_states)
     assert np.all(np.array(
         loaded_json["forecast_times"]) == cvr_data.forecast_t)
-    resp_states = np.array(loaded_json["response_states"])
-    assert np.all(resp_states == cvr_data.interv_states)
     assert np.all(np.array(
-        loaded_json["response_times"]) == cvr_data.forecast_t)
+        loaded_json["causal_resp_states"]) == cvr_data.interv_states)
+    assert np.all(np.array(
+        loaded_json["causal_resp_times"]) == cvr_data.forecast_t)
     
-    # Check that intervention corresponds with response states.
-    idxs = loaded_json["intervention_idxs"]
-    interv_states = np.array(loaded_json["intervention_states"])
-    resp_states = np.reshape(resp_states[:, idxs], (-1, len(idxs)))
-    assert np.allclose(resp_states, interv_states, atol=0.05), (
-        "Intervention states do not match columns in response:"
-        f"\n\tresponse_states = {resp_states}"
-        f"\n\tintervention_states = {interv_states}"
+    # Check exogenous state idxs are correct.
+    assert np.all(
+        np.array(loaded_json["train_exog_idxs"]) == np.array(cvr_data.obs_intervention.intervened_idxs)
+    )
+    assert np.all(
+        np.array(loaded_json["forecast_exog_idxs"]) == np.array(cvr_data.obs_intervention.intervened_idxs)
+    )
+    assert np.all(
+        np.array(loaded_json["causal_resp_exog_idxs"]) == np.array(cvr_data.do_intervention.intervened_idxs)
     )
 
     # Check that each variable has a description.
@@ -304,13 +321,8 @@ def test_predict_array_shapes(
             forecasts.
     """
     tr_pred, fc_pred, ivn_pred = ie.control_vs_resp.make_predictions(
-        method_type(**method_type.get_test_params()),
-        cvr_data.train_prior_t,
-        cvr_data.train_prior_states,
-        cvr_data.train_t,
-        cvr_data.train_states,
-        cvr_data.forecast_t,
-        cvr_data.intervention
+        method=method_type(**method_type.get_test_params()),
+        data=cvr_data,
     )
 
     assert tr_pred.shape == cvr_data.train_states.shape, (
@@ -340,12 +352,7 @@ def test_visualize():
     cvr_data = CTRL_V_RESP_DATA[0]
     tr_pred, fc_pred, ivn_pred = ie.control_vs_resp.make_predictions(
         method_type(**method_type.get_test_params()),
-        cvr_data.train_prior_t,
-        cvr_data.train_prior_states,
-        cvr_data.train_t,
-        cvr_data.train_states,
-        cvr_data.forecast_t,
-        cvr_data.intervention
+        data=cvr_data,
     )
     img = ie.control_vs_resp.visualize(
         model, method_type, cvr_data, tr_pred, fc_pred, ivn_pred
@@ -377,6 +384,7 @@ def test_optuna_obj_data(
         method_type = VAR,
         metrics = (interfere.metrics.RootMeanStandardizedSquaredError(),),
         metric_directions = ("minimize",),
+        raise_errors=True,
         **gen_data_args
     )
 
@@ -474,6 +482,7 @@ def test_optuna_obj_metrics(
         metrics = metrics,
         metric_directions = metric_directions,
         hyperparam_func=MagicMock(return_value={}),
+        raise_errors=True,
     )
 
     # Create mock methods that predict different data.
@@ -489,40 +498,37 @@ def test_optuna_obj_metrics(
     ):
         # Create methods that predict true training data only, true forecast
         # data only and true intervention data only.
-        mm.predict = (
-            lambda t, prior_endog_states=None, X=X.copy(), **kwargs:
+        mm.simulate = (
+            lambda t, X=X.copy(), **kwargs:
             (
-                X[:, :prior_endog_states.shape[1]] 
-                if len(t) == X.shape[0] 
-                else np.random.rand(len(t), prior_endog_states.shape[1])
+                X if len(t) == X.shape[0] 
+                # Return random data when asked for a different num of preds.
+                else np.random.rand(len(t), X.shape[1])
             )
         )
 
     # Check that mock methods are working correctly.
-    mock_train = mock_methods[0].predict(
+    mock_train = mock_methods[0].simulate(
         objective.data.train_t, 
-        prior_endog_states = objective.data.train_prior_states
     )
 
     assert np.all(mock_train == objective.data.train_states), (
         "Mock method does not predict training data correctly."
     )
     
-    mock_forecast = mock_methods[1].predict(
+    mock_forecast = mock_methods[1].simulate(
         objective.data.forecast_t,
-        prior_endog_states = objective.data.train_states
     )
 
     assert np.all(mock_forecast == objective.data.forecast_states), (
         "Mock method does not predict forecast data correctly."
     )
 
-    mock_interv = mock_methods[2].predict(
+    mock_interv = mock_methods[2].simulate(
         objective.data.forecast_t, 
-        prior_endog_states = objective.data.train_states[:, :2]
     )
 
-    assert np.all(mock_interv == objective.data.interv_states[:, :2]), (
+    assert np.all(mock_interv == objective.data.interv_states), (
         "Mock method does not predict intervention data correctly."
     )
 
@@ -592,7 +598,7 @@ def test_optuna_obj_exception_log():
     # Make a method type that raises value error when it is called after
     # initialization.
     mock_method = Mock()
-    mock_method.predict = Mock(
+    mock_method.simulate = Mock(
         side_effect=ValueError("Mock mock. Who's there?"))
     mock_method_type = Mock(
         return_value=mock_method
@@ -602,6 +608,7 @@ def test_optuna_obj_exception_log():
         **GEN_DATA_ARGS[0], 
         method_type = mock_method_type,
         hyperparam_func=MagicMock(return_value={}),
+        raise_errors=False,
     )
 
     mock_trial = Mock()
@@ -629,6 +636,8 @@ def test_optuna_obj_storage():
         **GEN_DATA_ARGS[0], 
         method_type = VAR,
         hyperparam_func=MagicMock(return_value={}),
+        raise_errors=True,
+
     )
 
     idx = 88
@@ -663,7 +672,8 @@ def test_optuna_obj_no_figures():
         **GEN_DATA_ARGS[0], 
         method_type = VAR,
         hyperparam_func=MagicMock(return_value={}),
-        store_plots=False
+        store_plots=False,
+        raise_errors=True,
     )
 
     idx = 88
@@ -690,7 +700,8 @@ def test_optuna_obj_pred_storing():
         **GEN_DATA_ARGS[0], 
         method_type = VAR,
         hyperparam_func=MagicMock(return_value={}),
-        store_preds=False
+        store_preds=False,
+        raise_errors=True,
     )
 
     idx = 88

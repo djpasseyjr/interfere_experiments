@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 import PIL.Image
 
 import interfere
-from interfere.interventions import ExogIntervention
+from interfere.interventions import ExogIntervention, IdentityIntervention
 from interfere.metrics import RootMeanStandardizedSquaredError as RMSSE
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,6 +31,9 @@ class ControlVsRespData:
         train_prior_states (np.ndarray): The states of the system used as
             historic obs when generating the training data. An array with shape
             (p, n) where rows are observations and columns are variables.
+        obs_intervention (ExogIntervention): Intervention controlling 
+            exogenous states during the observational stages (training and 
+            forecasting).
         train_t (np.ndarray): An array of time points with shape (m,)
             corresponding to the training data.
         train_states (np.ndarray): An array of training states of the system
@@ -41,7 +44,9 @@ class ControlVsRespData:
         forecast_states (np.ndarray): An array of states of the system to
             forecast with shape (k, n). Rows are observations and columns
             are variables.
-        intervention (ExogIntervention): The intervention that was applied.
+        do_intervention (ExogIntervention): Intervention controlling   
+            observational exogenous states (obs_intervention) AND intervened 
+            states.
         interv_states (np.ndarray): An array containing the intervention
             response with shape (k, n). Rows are observations and columns
             are variables. Each row corresponds to the times in
@@ -70,11 +75,12 @@ class ControlVsRespData:
     """
     train_prior_t: np.ndarray
     train_prior_states: np.ndarray
+    obs_intervention: ExogIntervention
     train_t: np.ndarray
     train_states: np.ndarray
     forecast_t: np.ndarray
     forecast_states: np.ndarray
-    intervention: interfere.interventions.ExogIntervention
+    do_intervention: ExogIntervention
     interv_states: np.ndarray
 
 
@@ -133,6 +139,20 @@ class ControlVsRespData:
                     f"\nforecast_states.shape = {self.forecast_states.shape}"
                     f"\ninterv_states.shape = {self.interv_states.shape}"
                 )
+    
+        obs_exog_idxs = set(self.obs_intervention.intervened_idxs)
+        do_exog_idxs = set(self.do_intervention.intervened_idxs)
+        if (
+            not obs_exog_idxs.issubset(do_exog_idxs)
+            or
+            do_exog_idxs.issubset(obs_exog_idxs)
+        ):
+            raise ValueError((
+                "Observational intervention exogenous variables must be a "
+                "proper subset of causal intervention exogenous variables."
+                f"\nObs Exog: {list(obs_exog_idxs)}"
+                f"\nCausal Exog: {list(do_exog_idxs)}"
+            ))
             
     def __eq__(self, other):
         """Compare equality across two ControlVsRespData classes.
@@ -149,7 +169,8 @@ class ControlVsRespData:
         equal = equal and np.all(self.forecast_t == other.forecast_t)
         equal = equal and np.all(self.forecast_states == other.forecast_states)
         equal = equal and np.all(self.interv_states == other.interv_states)
-        equal = equal and (self.intervention == other.intervention)
+        equal = equal and (self.obs_intervention == other.obs_intervention)
+        equal = equal and (self.do_intervention == other.do_intervention)
 
         return equal
     
@@ -177,9 +198,14 @@ class ControlVsRespData:
                         "description": "A list with length m. Contains the times corresponding to each observation in (row of) train_states."
                     },
                     {
+                        "name": "train_exog_idxs", 
+                        "type": "List[int]",
+                        "description": "The zero based column index that corresponds to the exgoenous variables columns train_states. Always the same as forecast_exog_idxs."
+                    },
+                    {
                         "name": "forecast_states",
                         "type": "List[List[float]]",
-                        "description": "An kxn list of lists. Rows are observations, columns are variables. Data that occurs directly after the training data in abscence of an intervention."
+                        "description": "An kxn list of lists. Rows are observations, columns are variables. Data that occurs directly after the training data."
                     },
                     {
                         "name": "forecast_times", 
@@ -187,24 +213,24 @@ class ControlVsRespData:
                         "description": "A list with length k. Contains the times corresponding to each observation in (row of) forecast_states."
                     },
                     {
-                        "name": "response_states",
-                        "type": "List[List[float]]",
-                        "description": "An kxn list of lists. Rows are observations, columns are variables. Data that occurs directly after the training data in response to the perfect intervention."
-                    },
-                    {
-                        "name": "response_times", 
-                        "type": "List[float]",
-                        "description": "A list with length k. Contains the times corresponding to each observation in (row of) response_states."
-                    },
-                    {
-                        "name": "intervention_idxs", 
+                        "name": "forecast_exog_idxs", 
                         "type": "List[int]",
-                        "description": "The zero based column index that corresponds to the variable that was manipulated to produce response_states."
+                        "description": "The zero based column index that corresponds to the exgoenous variables columns forecast_states. Always the same as train_exog_idxs."
                     },
                     {
-                        "name": "intervention_states", 
+                        "name": "causal_resp_states",
                         "type": "List[List[float]]",
-                        "description": "A kxp array where k is the length of forecast_times and p is the length of intervention_idxs. Each column corresponds to the indexes in intervention_idxs. To generate response_states, the variables at intervention_idxs are treated as exogenous and simulated with the values contained in this array. These should be used to as exogenous data when attempting to predict response_states. Additionally, response_states[: intervention_idxs] == intervention_states[:, :]"
+                        "description": "An kxn list of lists. Rows are observations, columns are variables. Contains data that occurs directly after the training data in response to exogenous control of a formerly endogenous variable."
+                    },
+                    {
+                        "name": "causal_resp_times", 
+                        "type": "List[float]",
+                        "description": "A list with length k. Contains the times corresponding to each observation in (row of) causal_resp_states."
+                    },
+                    {
+                        "name": "causal_resp_exog_idxs", 
+                        "type": "List[int]",
+                        "description": "The zero based column index that corresponds to the exogenous variables that were manipulated to produce causal_resp_states. Contains all indexes in train_exog_idxs and always includes at least one additional index corresponding to a formerly endogenous variable."
                     }
                 ]
             }
@@ -217,24 +243,19 @@ class ControlVsRespData:
             model_description (str): Optional description of the model that     
                 generated the data.
         """
-        # Build dictionary of data
-        idxs = self.intervention.intervened_idxs
-        interv_initial = list(self.interv_states[0, idxs])
-        interv_exog = self.intervention.eval_at_times(self.forecast_t[1:])
-        interv_exog = np.reshape(interv_exog, (-1, len(idxs))).tolist()
-        intervention_states = [interv_initial] + interv_exog
+        # Build dictionary of data.
         cvr_dict = {
             "metadata": self.json_metadata(),
             "model_description": model_description,
             "train_states": self.train_states.tolist(),
             "train_times": self.train_t.tolist(),
+            "train_exog_idxs": self.obs_intervention.intervened_idxs,
             "forecast_states": self.forecast_states.tolist(),
             "forecast_times": self.forecast_t.tolist(),
-            "response_states": self.interv_states.tolist(),
-            "response_times": self.forecast_t.tolist(),
-            "intervention_idxs": idxs,
-            # Combine intervention states with initial condition.
-            "intervention_states": intervention_states
+            "forecast_exog_idxs": self.obs_intervention.intervened_idxs,
+            "causal_resp_states": self.interv_states.tolist(),
+            "causal_resp_times": self.forecast_t.tolist(),
+            "causal_resp_exog_idxs": self.do_intervention.intervened_idxs,
         }
         with open(file_path, "w") as f:
             json.dump(cvr_dict, f)
@@ -245,7 +266,8 @@ def generate_data(
     num_train_obs: int,
     num_forecast_obs: int,
     timestep: float,
-    intervention: interfere.interventions.ExogIntervention,
+    do_intervention: ExogIntervention,
+    obs_intervention: ExogIntervention = interfere.interventions.IdentityIntervention(),
     train_prior_states: Optional[np.ndarray] = None,
     lags: Optional[int] = 50,
     rng: np.random.RandomState = DEFAULT_RNG,
@@ -258,9 +280,13 @@ def generate_data(
         num_train_obs (int): Number of training observations.
         num_forecast_obs (int): Number of forecast time points.
         timestep (float): Timestep between each observation.
-        intervention (interfere.interventions.ExogIntervention): The 
-            intervention to use to generate a response.
-        train_prior_states (Optional[np.ndarray] = None): The initial state and
+        obs_intervention (ExogIntervention): Intervention controlling 
+            exogenous states during the observational stages (training and 
+            forecasting).
+        do_intervention (ExogIntervention): Intervention controlling   
+            observational exogenous states (obs_intervention) AND intervened 
+            states.
+        train_prior_states (Optional[np.ndarray]): The initial state and
             historical states to use to start off simualation.
         lags (Optional[int] = 50): How many historic states there should be.
             Used only when train_prior_states is none.
@@ -294,6 +320,7 @@ def generate_data(
         train_t, 
         prior_states=train_prior_states,
         prior_t=train_prior_t,
+        intervention=obs_intervention,
         rng=rng
     )
 
@@ -305,84 +332,84 @@ def generate_data(
 
     # Simulate forecast.
     forecast_states = model.simulate(
-        forecast_t, prior_states=train_states, prior_t=train_t, rng=rng)
+        forecast_t,
+        prior_states=train_states,
+        prior_t=train_t,
+        intervention=obs_intervention,
+        rng=rng
+    )
 
     # Simulate intervention.
     interv_states = model.simulate(
-        forecast_t, prior_states=train_states, prior_t=train_t, intervention=intervention, rng=rng)
+        forecast_t, prior_states=train_states, prior_t=train_t, 
+        intervention=do_intervention, rng=rng
+    )
 
     return ControlVsRespData(
         train_prior_t,
         train_prior_states,
+        obs_intervention,
         train_t,
         train_states,
         forecast_t,
         forecast_states,
-        intervention,
+        do_intervention,
         interv_states
     )
 
 
 def make_predictions(
     method: interfere.ForecastMethod,
-    train_prior_t: np.ndarray,
-    train_prior_states: np.ndarray,
-    train_t: np.ndarray,
-    train_states: np.ndarray,
-    forecast_t: np.ndarray,
-    intervention: interfere.interventions.ExogIntervention,
+    data: ControlVsRespData,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Uses passed method to forecast training, control, and response data.
 
     Args:
-        method (interfere.ForecastMethod): A forecasting
-            method.
-        train_prior_t (ndarray): Time values corresponding to
-            `train_prior_states`.
-        train_prior_states (np.ndarray): Historic states relative to
-            `train_states`.
-        train_t (np.ndarray): Time values corresponding to `train_states`.
-        train_states (np.ndarray): Training time series for the method.
-        forecast_t (np.ndarray): Time values to forecast.
-        intervention (interfere.interventions.ExogIntervention): Intervention
-            to simulate.
+        method (interfere.ForecastMethod): A forecasting method.
+        data (ControlVsRespData): Data class containing control vs response c
+            causal prediction data.
 
     Returns:
         train_pred (np.ndarray): Attempt to recreate training data.
         forecast_pred (np.ndarray): Attempt to forecast timesteps `forecast_t`
             that occur directly after the training data.
         interv_pred (np.ndarray): Attempt to forecast timesteps `forecast_t`
-            that occur directly after the training data in response to the `intervention`.
+            that occur directly after the training data in response to the `do_intervention`.
     """
+    # Unpack data.
+    train_prior_t = data.train_prior_t
+    train_prior_states = data.train_prior_states
+    train_t = data.train_t
+    train_states = data.train_states
+    forecast_t = data.forecast_t
+    obs_intervention = data.obs_intervention
+    do_intervention = data.do_intervention
+
     # Forecast prediction.
-    method.fit(train_t, train_states)
-    forecast_pred = method.predict(
-        forecast_t, prior_endog_states=train_states, prior_t=train_t)
-
-    # Recreate training data.
-    train_pred = method.predict(
-        train_t, prior_endog_states=train_prior_states, prior_t=train_prior_t)
-
-    # Split up endog and exog for intervention forecasting.
-    endog_tr_states, exog_tr_states = intervention.split_exog(
-        train_states)
-    method.fit(
-        train_t, endog_states=endog_tr_states, exog_states=exog_tr_states)
-
-    interv_exog = intervention.eval_at_times(forecast_t)
-
-    # Forecast the intervention response.
-    interv_endog_pred = method.predict(
+    method.fit(train_t, *obs_intervention.split_exog(train_states))
+    forecast_pred = method.simulate(
         forecast_t,
-        prior_endog_states=endog_tr_states,
-        prior_t = train_t,
-        prior_exog_states=exog_tr_states,
-        prediction_exog=interv_exog,
+        prior_states=train_states,
+        prior_t=train_t,
+        intervention=obs_intervention
     )
 
-    # Recombine endog prediction with exogenous data.
-    interv_pred = intervention.combine_exog(
-        interv_endog_pred, interv_exog)
+    # Recreate training data.
+    train_pred = method.simulate(
+        train_t,
+        prior_states=train_prior_states,
+        prior_t=train_prior_t,
+        intervention=obs_intervention,
+    )
+
+    # Split up endog and exog for intervention forecasting.
+    method.fit(train_t, *do_intervention.split_exog(train_states))
+    interv_pred = method.simulate(
+        forecast_t,
+        prior_states=train_states,
+        prior_t=train_t,
+        intervention=do_intervention
+    )
 
     return train_pred, forecast_pred, interv_pred
 
@@ -408,7 +435,7 @@ def visualize(
             that occur directly after the training data.
         interv_pred (np.ndarray): Attempt to forecast timesteps `forecast_t`
             that occur directly after the training data in response to the
-            `intervention`.
+            `do_intervention`.
             
     Returns:
         img (PIL.Image): A visualization of the control vs response forecasting 
@@ -531,7 +558,8 @@ class CVROptunaObjective:
         num_train_obs: int = 100,
         num_forecast_obs: int = 25,
         timestep: float = 1.0,
-        intervention: Optional[interfere.interventions.ExogIntervention] = None,
+        obs_intervention: Optional[ExogIntervention] = IdentityIntervention(),
+        do_intervention: Optional[ExogIntervention] = IdentityIntervention(),
         train_prior_states: Optional[np.ndarray] = None,
         lags: Optional[int] = 50,
         hyperparam_func: Optional[
@@ -544,6 +572,7 @@ class CVROptunaObjective:
         metric_directions: Iterable[str] = ("maximize", "minimize", "maximize"),
         store_plots: bool = True,
         store_preds: bool = True,
+        raise_errors: bool = False,
         rng: np.random.RandomState = DEFAULT_RNG,
     ):
         """Initializes objective function for optuna parameter tuning.
@@ -556,8 +585,12 @@ class CVROptunaObjective:
             num_train_obs (int): Number of training observations.
             num_forecast_obs (int): Number of forecast time points.
             timestep (float): Timestep between each observation.
-            intervention (interfere.interventions.ExogIntervention): The
-                intervention to use to generate a response.
+            obs_intervention (ExogIntervention): Intervention controlling exogenous   
+                states during the observational stages (training and 
+                forecasting).
+            do_intervention (ExogIntervention): Intervention controlling   
+                observational exogenous states (obs_intervention) AND 
+                intervened states.
             train_prior_states (Optional[np.ndarray] = None): The initial state and
                 historical states to use to start off simualation.
             lags (Optional[int] = 50): How many historic states there should be.
@@ -573,6 +606,7 @@ class CVROptunaObjective:
             store_plots (bool): Denotes if a plot of each control v.s. response 
                 prediction should be saved. Accessible in self.trial_imgs.
             store_preds (bool). Accessible in self.trial_preds.
+            raise_errors (bool): Toggle whether to raise errors or log them.
             rng (np.random.RandomState): Random state for reproducibility.
         """
 
@@ -583,12 +617,14 @@ class CVROptunaObjective:
             num_train_obs=num_train_obs,
             num_forecast_obs=num_forecast_obs,
             timestep=timestep,
-            intervention=intervention,
+            obs_intervention=obs_intervention,
+            do_intervention=do_intervention,
             train_prior_states=train_prior_states,
             lags=lags,
             rng=rng
         )
-        self.intervention = intervention
+        self.obs_intervention = obs_intervention
+        self.do_intervention = do_intervention
 
         if hyperparam_func is None:
             hyperparam_func = method_type._get_optuna_params 
@@ -596,6 +632,7 @@ class CVROptunaObjective:
         self.metrics = metrics
         self.store_plots = store_plots
         self.store_preds = store_preds
+        self.raise_errors = raise_errors
         self.metric_directions = metric_directions * 3
         self.metric_names = [
             series + m.name for m in self.metrics for series in ["train_", "forecast_", "interv_"]
@@ -611,29 +648,48 @@ class CVROptunaObjective:
         train_pred: np.ndarray,
         forecast_pred: np.ndarray,
         interv_pred: np.ndarray,
-        intervention: interfere.interventions.ExogIntervention
+        obs_intervention: ExogIntervention,
+        do_intervention: ExogIntervention,
     ):
         """Computes metrics for control vs response problem.
 
         Args:
-        
+            data (ControlVsRespData): A data class containing the training data 
+                and forecasting targets.
+            train_pred (np.ndarray): Attempt to recreate training data.
+            forecast_pred (np.ndarray): Attempt to forecast timesteps
+                `data.forecast_t` that occur directly after the training data.
+            interv_pred (np.ndarray): Attempt to forecast timesteps 
+                `data.forecast_t` that occur directly after the training data in response to the `do_intervention`.
+            obs_intervention (ExogIntervention): Intervention controlling 
+                exogenous states during the observational stages (training and 
+                forecasting).
+            do_intervention (ExogIntervention): Intervention controlling   
+                observational exogenous states (obs_intervention) AND 
+                intervened  states.
+
         Returns:
             scores (List[float]): A list of scalar scores.
         """
-        
+        obs_exog_idxs = obs_intervention.intervened_idxs
         train_scores = [
-            m(data.train_states, data.train_states, train_pred, [])
+            m(data.train_states, data.train_states, train_pred, obs_exog_idxs)
             for m in self.metrics
         ]
 
         forecast_scores = [
-            m(data.train_states, data.forecast_states, forecast_pred, [])
+            m(
+                data.train_states,
+                data.forecast_states,
+                forecast_pred, 
+                obs_exog_idxs
+            )
             for m in self.metrics
         ]
 
-        idxs = intervention.intervened_idxs
+        do_exog_idxs = do_intervention.intervened_idxs
         interv_scores = [
-            m(data.train_states, data.interv_states, interv_pred, idxs)
+            m(data.train_states, data.interv_states, interv_pred, do_exog_idxs)
             for m in self.metrics
         ]
 
@@ -649,13 +705,8 @@ class CVROptunaObjective:
         try:
             # Make predictions.
             train_pred, forecast_pred, interv_pred = make_predictions(
-                method,
-                self.data.train_prior_t,
-                self.data.train_prior_states,
-                self.data.train_t,
-                self.data.train_states,
-                self.data.forecast_t,
-                self.data.intervention
+                method=method,
+                data=self.data
             )
 
             # Replace nans.
@@ -664,14 +715,19 @@ class CVROptunaObjective:
 
             # Compute scores.
             metrics = self.compute_metrics(
-                self.data,
-                train_pred,
-                forecast_pred,
-                interv_pred,
-                self.intervention
+                data=self.data,
+                train_pred=train_pred,
+                forecast_pred=forecast_pred,
+                interv_pred=interv_pred,
+                obs_intervention=self.obs_intervention,
+                do_intervention=self.do_intervention,
             )
 
         except Exception as e:
+
+            if self.raise_errors:
+                raise e
+            
             # Store error log
             error_log = str(e) + "\n\n" + traceback.format_exc()
             self.trial_error_log[trial.number] = error_log

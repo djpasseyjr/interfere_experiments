@@ -5,13 +5,14 @@ Designed to simplify control vs response data generation by handling initial con
 from typing import Any, Dict, Type
 
 import interfere
+from interfere.interventions import ExogIntervention
 import numpy as np
 
 import interfere_experiments.control_vs_resp as control_vs_resp
 
 
 SEED = 11
-
+RNG = np.random.default_rng()
 
 class DataGenerator:
 
@@ -20,8 +21,10 @@ class DataGenerator:
         self,
         model_type: Type[interfere.DynamicModel],
         model_params: Dict[str, Any] = {},
-        intervention_type: Type[interfere.interventions.ExogIntervention] = interfere.PerfectIntervention,
-        intervention_params: Dict[str, Any]={},
+        obs_intervention_type: Type[ExogIntervention] = interfere.interventions.IdentityIntervention,
+        obs_intervention_params: Dict[str, Any] = {},
+        do_intervention_type: Type[ExogIntervention] = interfere.PerfectIntervention,
+        do_intervention_params: Dict[str, Any]={},
         initial_condition: np.ndarray = np.ndarray([0]),
         start_time: float = 0,
         timestep: float = 1,
@@ -33,9 +36,16 @@ class DataGenerator:
             model_type (Type[interfere.DynamicModel]): The type of the model to
             simulate.
             model_params (Dict[str, Any]): Parameters for the model.
-            intervention_type (Type[interfere.interventions.ExogIntervention]):
-                The type of intervention to use.
-            intervention_params (Dict[str, Any]): Parameters for the intervention.
+            obs_intervention_type (Type[ExogIntervention]):
+                The type of intervention controling observational 
+                exogenous states.
+            obs_intervention_params (Dict[str, Any]): Parameters for the   
+                observational intervention.
+            do_intervention_type (Type[ExogIntervention]):
+                The type of intervention controling observational 
+                exogenous states and causal intervention states.
+            do_intervention_params (Dict[str, Any]): Parameters for the   
+                intervention.
             initial_conds (np.ndarray): Initial conditions for the model.
             start_time (float): Start time for the simulation.
             timestep (float): Timestep between each observation.
@@ -43,8 +53,10 @@ class DataGenerator:
         """
         self.model_type = model_type
         self.model_params = model_params
-        self.intervention_type = intervention_type
-        self.intervention_params = intervention_params
+        self.obs_intervention_type = obs_intervention_type
+        self.obs_intervention_params = obs_intervention_params
+        self.do_intervention_type = do_intervention_type
+        self.do_intervention_params = do_intervention_params
         self.initial_condition = initial_condition
         self.start_time = start_time
         self.timestep = timestep
@@ -72,8 +84,13 @@ class DataGenerator:
             num_train_obs,
             num_forecast_obs,
             self.timestep,
-            self.intervention_type(**self.intervention_params),
-            train_prior_states=self.initial_condition
+            do_intervention=self.do_intervention_type(
+                **self.do_intervention_params),
+            obs_intervention=self.obs_intervention_type(
+                **self.obs_intervention_params
+            ),
+            train_prior_states=self.initial_condition,
+            rng=self.rng
         )
 
 
@@ -89,8 +106,8 @@ class ArithmeticBrownianMotion(DataGenerator):
                 "sigma": np.zeros(10),
                 "measurement_noise_std": 0.1 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 4.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 4.0},
             initial_condition=np.array([
                 [0.88706501, -0.28115793,  0.56961082,  0.18255637,
                 -0.41134288, 0.84545137,  0.73866309, -0.27172315,  
@@ -105,16 +122,15 @@ class ArithmeticBrownianMotion(DataGenerator):
         )
 
 
-
 class AttractingFixedPoint4D(DataGenerator):
 
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.attracting_fixed_point_4d_linear_sde,
-            model_params={"sigma": 0.0, "measurement_noise_std": 0.1 * np.ones(4)},
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 4.0},
+            model_params={"sigma": 0.0, "measurement_noise_std": 0.01 * np.ones(4)},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 4.0},
             initial_condition=np.array([
                 [-0.73907002, -0.65245823, -0.48475903,  0.85564824],
                 [ 0.61719957, -0.9664203 ,  0.12427135, -0.59981189]
@@ -136,8 +152,8 @@ class Belozyorov1(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.1 * np.ones(3)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 5.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 5.0},
             initial_condition=np.array([
                 [0.66158597, 0.8012904 , 0.19920669],
                 [0.8102566 ,  0.10224813, -0.35046573]
@@ -159,8 +175,8 @@ class Belozyorov2(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.1 * np.ones(3)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 5.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 5.0},
             initial_condition=np.array([
                 [0.66158597, 0.8012904 , 0.19920669],
                 [0.8102566 ,  0.10224813, -0.35046573]
@@ -181,8 +197,8 @@ class Belozyorov3(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.1 * np.ones(3)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 5.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 5.0},
             initial_condition=np.array([
                 [0.66158597, 0.8012904 , 0.19920669],
                 [0.8102566 ,  0.10224813, -0.35046573]
@@ -205,8 +221,8 @@ class CoupledLogisticMapAllToAll(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 1.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 1.0},
             initial_condition=np.array([
                 [0.44014438, 0.3384513 , 0.03194094, 0.65459332, 0.09945458,
                 0.23480209, 0.95890812, 0.37583802, 0.36249618, 0.68989044],
@@ -243,8 +259,8 @@ class CoupledLogisticMapTwoCycles(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 1.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 1.0},
             initial_condition=np.array([
                 [0.44014438, 0.3384513 , 0.03194094, 0.65459332, 0.09945458,
                 0.23480209, 0.95890812, 0.37583802, 0.36249618, 0.68989044],
@@ -280,8 +296,8 @@ class CoupledLogisticMapTwoCycles2(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 1.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 1.0},
             initial_condition=np.array([
                 [0.44014438, 0.3384513 , 0.03194094, 0.65459332, 0.09945458,
                 0.23480209, 0.95890812, 0.37583802, 0.36249618, 0.68989044],
@@ -304,8 +320,8 @@ class CoupledMapLatticeChaoticBrownian(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169, 0.2889972 , 0.82839787, 0.58265462, 0.29667264],
@@ -328,8 +344,8 @@ class CoupledMapLatticeChaoticTravelingWave(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 0.5},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169, 0.2889972 , 0.82839787, 0.58265462, 0.29667264],
@@ -352,8 +368,8 @@ class CoupledMapLatticeDefectTurbulence(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169, 0.2889972 , 0.82839787, 0.58265462, 0.29667264],
@@ -376,8 +392,8 @@ class CoupledMapLatticePatternSelection(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10),
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169, 0.2889972 , 0.82839787, 0.58265462, 0.29667264],
@@ -400,8 +416,8 @@ class CoupledMapLatticeSpatioTempChaos(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169, 0.2889972 , 0.82839787, 0.58265462, 0.29667264],
@@ -424,8 +440,8 @@ class CoupledMapLatticeSpatioTempIntermit(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 0.5},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169, 0.2889972 , 0.82839787, 0.58265462, 0.29667264],
@@ -448,8 +464,8 @@ class CoupledMapLatticeTravelingWave(DataGenerator):
                 "sigma": 0.0,
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 0.5},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169, 0.2889972 , 0.82839787, 0.58265462, 0.29667264],
@@ -469,8 +485,8 @@ class DampedOscillator1(DataGenerator):
             model_type=interfere.dynamics.DampedOscillator,
             model_params={"m": 1.0, "c": 2, "k": 10, "sigma": 0,
                           "measurement_noise_std": 0.05 * np.ones(2)},
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.17484967, 0.56195172],
                 [-0.23292231, -0.69167961]
@@ -487,8 +503,8 @@ class DampedOscillator2(DataGenerator):
         super().__init__(
             model_type=interfere.dynamics.DampedOscillator,
             model_params={"m": 30.0, "c": 0.5, "k": 2, "sigma": 0, "measurement_noise_std": 0.05 * np.ones(2)},
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.17484967, 0.56195172],
                 [-0.23292231, -0.69167961]
@@ -510,8 +526,8 @@ class GeometricBrownianMotion1(DataGenerator):
                 "sigma": np.zeros(10),
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 0.5},
             initial_condition=np.array([
                 [0.21433191, -0.19033034, -0.19308829, -0.82433803, -0.1581898,
         -0.89612777,  0.80391384, -0.25030014,  0.43063596,  0.17665972],
@@ -536,8 +552,8 @@ class GeometricBrownianMotion2(DataGenerator):
                 "sigma": np.zeros(10),
                 "measurement_noise_std": 0.01 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 0.5},
             initial_condition=np.array([
                 [0.21433191, -0.19033034, -0.19308829, -0.82433803, -0.1581898,
         -0.89612777,  0.80391384, -0.25030014,  0.43063596,  0.17665972],
@@ -567,8 +583,8 @@ class HodgkinHuxley1(DataGenerator):
                 "w3": 0,
                 "measurement_noise_std": 5 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -20},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -20},
             initial_condition=np.array([
                 [-26.51263192, -21.59051353, -24.62611325,  -5.23379733,
                  -36.13584145, -20.95452341,   9.8631521 ,  -7.9524096 ,
@@ -601,8 +617,8 @@ class HodgkinHuxley2Chain(DataGenerator):
                 "measurement_noise_std": 5 * np.ones(10),
                 "type_conn": "list_bdir"
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 70},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 70},
             initial_condition=np.array([
                 [-19.22092384,  -4.36571889, -22.0525331 , -28.14107253,
                 -8.67268893, -26.42471519, -20.92204683,   1.52784374,
@@ -634,8 +650,8 @@ class HodgkinHuxley3Grid(DataGenerator):
                 "measurement_noise_std": 5 * np.ones(10),
                 "type_conn": "grid_four"
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 70},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 70},
             initial_condition=np.array([
                 [ -6.82502728,   9.82700264, -34.8376886 ,   4.36644889,
                 -23.44068506, -36.10761556, -25.57154861, -35.75632685,
@@ -659,8 +675,8 @@ class ImaginaryRoots4D(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.01 * np.ones(4)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563],
                 [0.32654883, 0.8377457 , 0.82375113, 0.23435478]
@@ -698,8 +714,8 @@ class KuramotoOscilator1(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.21688613, -0.52486516,  0.62411263, -0.2703094 , -0.82369351,
             -0.69257434, -0.25823711,  0.66971335, -0.54667034,  0.56496237],
@@ -739,8 +755,8 @@ class KuramotoOscilator2(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.21688613, -0.52486516,  0.62411263, -0.2703094 , -0.82369351,
             -0.69257434, -0.25823711,  0.66971335, -0.54667034,  0.56496237],
@@ -792,8 +808,8 @@ class KuramotoSakaguchi1(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [0.21688613, -0.52486516,  0.62411263, -0.2703094 , -0.82369351,
             -0.69257434, -0.25823711,  0.66971335, -0.54667034,  0.56496237],
@@ -845,8 +861,8 @@ class KuramotoSakaguchi2(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [ 0.77161016,  0.3487197 ,  0.96420325,  0.36306674, -0.33142683,
             0.87484113, -0.84183325,  0.36441894, -0.78354128, -0.64144033],
@@ -897,8 +913,8 @@ class KuramotoSakaguchi3(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
             initial_condition=np.array([
                 [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
                 [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
@@ -918,8 +934,8 @@ class Liping3DQuadFinance(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(3)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": -0.1},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": -0.1},
             initial_condition=np.array([
                 [-1.77563702, -1.52105886, -0.69282225],
                 [-1.45612385,  0.54978974, -1.72199022]
@@ -956,8 +972,8 @@ class LotkaVoltera1(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 5.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 5.0},
             initial_condition=np.array([
                 [6.1456928 , 3.42103611, 7.00446391, 6.35503927, 3.11792205,
                 2.79971274, 3.91900287, 2.95954181, 7.58954302, 7.90596947],
@@ -995,8 +1011,8 @@ class LotkaVoltera2(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(10),
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 5.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 5.0},
             initial_condition=np.array([
                 [6.1456928 , 3.42103611, 7.00446391, 6.35503927, 3.11792205,
                 2.79971274, 3.91900287, 2.95954181, 7.58954302, 7.90596947],
@@ -1033,8 +1049,8 @@ class LotkaVoltera3(DataGenerator):
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(10)
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 10.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 10.0},
             initial_condition=np.array([
                 [6.1456928 , 3.42103611, 7.00446391, 6.35503927, 3.11792205,
                 2.79971274, 3.91900287, 2.95954181, 7.58954302, 7.90596947],
@@ -1071,8 +1087,8 @@ class LotkaVoltera4(DataGenerator):
                 ]),
                 "sigma": 0,
                 "measurement_noise_std": 0.05 * np.ones(10)},
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 10.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 10.0},
             initial_condition=np.array([
                 [6.1456928 , 3.42103611, 7.00446391, 6.35503927, 3.11792205,
                 2.79971274, 3.91900287, 2.95954181, 7.58954302, 7.90596947],
@@ -1101,8 +1117,8 @@ class OrnsteinUhlenbeck1(DataGenerator):
             ]),
                 "sigma": np.zeros((5, 5)),
                 "measurement_noise_std": 0.05 * np.ones(5)},
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 2.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 2.0},
             initial_condition=np.array([
                 [-1.13237842,  0.85593583,  2.11953355,  1.47173214,  0.6987275],
                 [-2.47019708, -0.75337922, -0.29746292,  1.1320844 ,  1.91501353]
@@ -1134,8 +1150,8 @@ class OrnsteinUhlenbeck2(DataGenerator):
             ]),
                 "sigma": np.zeros((5, 5)),
                 "measurement_noise_std": 0.05 * np.ones(5)},
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 2.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 2.0},
             initial_condition=np.array([
                 [-1.13237842,  0.85593583,  2.11953355,  1.47173214,  0.6987275],
                 [-2.47019708, -0.75337922, -0.29746292,  1.1320844 ,  1.91501353]
@@ -1163,8 +1179,8 @@ class OrnsteinUhlenbeck3(DataGenerator):
                 ]),
                 "sigma": np.zeros((5, 5)),
                 "measurement_noise_std": 0.05 * np.ones(5)},
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 2.0},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 2.0},
             initial_condition=np.array([
                 [ 1.54670353,  2.25712311, -1.78229183, -0.08259701,  2.84710893],
                 [ 0.6928484 , -2.09602794, -0.69285883, -1.87164538,  1.95915625]
@@ -1379,8 +1395,8 @@ class VARMA1SpatiotempChaos(DataGenerator):
                         0.053 , 0.0708]]),
                 "measurement_noise_std": 0.05 * np.ones(10),
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 1.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 1.5},
             initial_condition=np.array([
                 [-2.14616   ,  2.50546601, -2.25526292,  1.0125853 , -1.71726825,
          0.86319739,  2.49925294,  2.01354154,  0.68934069, -0.03081311],
@@ -1597,8 +1613,8 @@ class VARMA2ChaoticBrownian(DataGenerator):
                     0.0603,  0.0352,  0.1128]]),
                 "measurement_noise_std": 0.05 * np.ones(10),
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 1.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 1.5},
             initial_condition=np.array([
                 [ 0.79693014,  1.65627622, -0.15361451, -1.80763549, -2.47864785,
                 -1.53604023, -1.8893948 ,  0.8139425 ,  2.92361533, -2.84296333],
@@ -1845,8 +1861,8 @@ class VARMA3LotkaVoltera(DataGenerator):
                     -0.0053, -0.056,  0.0006]]),
                 "measurement_noise_std": 0.05 * np.ones(10),
             },
-            intervention_type=interfere.PerfectIntervention,
-            intervention_params={"intervened_idxs": 0, "constants": 1.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 1.5},
             initial_condition=np.array([
                 [-2.81111324,  0.22267988, -2.07542116,  0.53394164, -0.35001051,
                 0.05721839,  0.83864668, -2.97425894, -1.42596918,  1.25991323],
