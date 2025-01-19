@@ -265,7 +265,7 @@ def test_cvr_cv_init():
     """Tests the __init__ method of the CVRCrossValObjective class."""
     cv = CVRCrossValObjective(**DEFAULT_CV_ARGS)
     assert cv.method_type == interfere.methods.VAR
-    assert cv.data.shape == (100, 2)
+    assert cv.data.shape == (100, 3)
     assert cv.times.shape == (100,)
     assert cv.train_window_percent == 0.6
     assert cv.num_folds == 3
@@ -591,3 +591,6 @@ def test_cvr_cv_call_methods(
     score = study.best_value
 
     assert isinstance(score, float)
+
+
+test_cvr_cv_call_methods(interfere.methods.NHITS, "all")
