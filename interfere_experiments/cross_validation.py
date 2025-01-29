@@ -226,7 +226,14 @@ class CVRCrossValObjective:
         """
 
         # Initialize method.
-        method = self.method_type(**self.hyperparam_func(trial))
+        method = self.method_type(
+            **self.hyperparam_func(
+                trial,
+                # Some methods throw errors when the dataset is too small to 
+                # accomodate the input size/lags and the forecast horizon.
+                max_lags=self.num_val_prior_states,
+                max_horizon=self.num_train_obs - self.num_val_prior_states
+            ))
 
         if method.get_window_size() > self.num_val_prior_states:
             raise ValueError(

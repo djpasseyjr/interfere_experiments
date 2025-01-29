@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+from interfere._methods.deep_learning import LTSF
 import interfere.methods
 from interfere.metrics import RootMeanStandardizedSquaredError as RMSSE
 from interfere_experiments.cross_validation import CVRCrossValObjective
@@ -7,10 +8,12 @@ import numpy as np
 import optuna
 import pytest
 
+SEED = 12
+RNG = np.random.default_rng(SEED)
 
 DEFAULT_CV_ARGS = {
     "method_type": interfere.methods.VAR,
-    "data": np.random.rand(100, 3),
+    "data": RNG.random((100, 3)),
     "times": np.arange(100),
     "train_window_percent": 0.6,
     "num_folds": 3,
@@ -365,8 +368,9 @@ def test_cvr_cv_call(
     """
     # Build a mock method type.
     mock_method = Mock()
-    predict_side_effect = lambda *args, **kwargs: np.random.rand(
-        len(args[0]), kwargs["prior_endog_states"].shape[1])
+    predict_side_effect = lambda *args, **kwargs: RNG.random(
+        (len(args[0]), kwargs["prior_endog_states"].shape[1])
+    )
     mock_method.predict = Mock(side_effect=predict_side_effect)
     mock_method.fit = Mock()
     mock_method.get_window_size = Mock(return_value=5)
@@ -553,7 +557,7 @@ METHODS = [
     interfere.methods.AverageMethod,
     interfere.methods.ResComp,
     interfere.methods.SINDY, 
-    interfere.methods.LTSF,
+    LTSF,
     interfere.methods.VAR,
     interfere.methods.LSTM,
     interfere.methods.NHITS,
@@ -575,22 +579,22 @@ def test_cvr_cv_call_methods(
     """
     cv = CVRCrossValObjective(**{
         **DEFAULT_CV_ARGS,
-        "data": np.random.rand(600, 3),
+        "data": RNG.random((600, 3)),
         "times": np.arange(600),
         "train_window_percent": 0.5,
         "num_folds": 4,
-        "num_val_prior_states": 50,
+        "num_val_prior_states": 5,
         "method_type": method_type,
         "store_preds": False,
         "val_scheme": val_scheme,
         "raise_errors": True,
     })
 
-    study = optuna.create_study()
+    study = optuna.create_study(sampler=optuna.samplers.TPESampler(seed=SEED))
     study.optimize(cv, n_trials=1)
     score = study.best_value
 
     assert isinstance(score, float)
 
 
-test_cvr_cv_call_methods(interfere.methods.NHITS, "all")
+test_cvr_cv_call_methods(interfere.methods.ARIMA, "last")
