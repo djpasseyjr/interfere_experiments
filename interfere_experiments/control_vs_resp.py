@@ -185,7 +185,7 @@ class ControlVsRespData:
                     {
                         "name": "model_description",
                         "type": "str",
-                        "description": "A string of text describing the dynami  model that underlies the data generating process. May include equations, references, parameter values and parameter descriptions."
+                        "description": "A string of text describing the dynamic model that underlies the data generating process. May include equations, references, parameter values and parameter descriptions."
                     },
                     {
                         "name": "train_states", 
@@ -314,6 +314,24 @@ def generate_data(
 
     train_prior_t = np.arange((-lags + 1) * timestep, 1 * timestep, timestep)
     train_t = np.arange(0, num_train_obs * timestep, timestep)
+
+    all_times = np.hstack([train_prior_t[:-1], train_t])
+    try:
+        obs_intervention.eval_at_times(all_times)
+    except Exception as e:
+        raise ValueError(
+            "Observational intervention not defined for all time points. "
+            "(Sometimes caused by DataGenerator num_burn_in_states.)"
+            f"\nError: \n{e} \n\n{traceback.format_exc()}"
+        )
+    try:
+        do_intervention.eval_at_times(all_times)
+    except Exception as e:
+        raise ValueError(
+            "\"Do intervention\" not defined for all time points. "
+            "(Sometimes caused by DataGenerator num_burn_in_states.)"
+            f"\nError: \n{e} \n\n{traceback.format_exc()}"
+        )
 
     # Simulate training data.
     train_states = model.simulate(

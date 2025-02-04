@@ -272,6 +272,21 @@ class TestDataGen:
             f"Expected shape: {(num_forecast_obs, dim)}"
         )
 
+def test_generate_data_raises_for_bad_intervention():
+    args = GEN_DATA_ARGS[0]
+    args["do_intervention"] = interfere.SignalIntervention(
+        [0], [lambda t: 1/0])
+    
+    with pytest.raises(ValueError, match="ZeroDivisionError"):
+        ie.control_vs_resp.generate_data(**args)
+
+    args = GEN_DATA_ARGS[0]
+    args["obs_intervention"] = interfere.SignalIntervention(
+        [0], [lambda t: 1/0])
+    
+    with pytest.raises(ValueError, match="ZeroDivisionError"):
+        ie.control_vs_resp.generate_data(**args)
+
 
 @pytest.mark.parametrize("gen_data_args", GEN_DATA_ARGS)
 def test_generate_data_rng_is_reproducible(
