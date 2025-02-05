@@ -2,11 +2,12 @@
 
 Designed to simplify control vs response data generation by handling initial condition, stepsize and intervention.
 """
-from typing import Any, Dict, Type
+from typing import Any, Dict, Optional, Type
 
 import interfere
 from interfere.interventions import ExogIntervention
 import numpy as np
+import scipy.interpolate
 
 import interfere_experiments.control_vs_resp as control_vs_resp
 
@@ -130,6 +131,87 @@ class DataGenerator:
             -(num_prior_obs + num_train_obs) + 1:(-num_train_obs + 1)
         ]
         return data
+
+
+def uniform_frequency_dist_random_signal(
+    total_time: float,
+    amplitude_min: float = 0.0,
+    amplitude_max: float = 1.0,
+    frequency_min: float = 2.0,
+    frequency_max: float = 10.0,
+    rng: Optional[np.random.RandomState] = None,
+) -> np.ndarray:
+    """Creates a signal with a uniform dist of frequencies and amplitudes.
+
+    Args:
+        total_time (float): Total time in seconds.
+        amplitude_min (float): Minimum amplitude.
+        amplitude_max (float): Maximum amplitude.
+        frequency_min (float): Minimum frequency in oscillations per second.
+            Must be greater than zero.
+        frequency_max (float): Maximum frequency in oscillations per second.
+            Must be greater than frequency_min.
+        rng (np.random.RandomState): Random number generator.
+
+    Returns:
+        times (np.ndarray): Time values for a signal with a uniform dist of
+            frequencies and amplitudes.
+        values (np.ndarray): Values for a signal with a uniform dist of
+            frequencies and amplitudes.
+    """
+    if total_time <= 0:
+        raise ValueError("total_time must be greater than 0")
+
+    if 1/frequency_min >= total_time:
+        raise ValueError("1/frequency_min must be less than total_time")
+
+    if frequency_max < frequency_min:
+        raise ValueError("frequency_max must be greater than frequency_min")
+
+    if amplitude_max <= amplitude_min:
+        raise ValueError("amplitude_max must be greater than amplitude_min")
+
+    if rng is None:
+        rng = np.random.default_rng()
+
+    rand_val = lambda : rng.random() * (
+        amplitude_max - amplitude_min) + amplitude_min
+    rand_freq = lambda : rng.random() * (
+        frequency_max - frequency_min) + frequency_min
+
+    times = [0]
+    values = [rand_val()]
+    while times[-1] < total_time:
+        times.append(times[-1] + 1/rand_freq())
+        values.append(rand_val())
+
+    return np.array(times), np.array(values)
+
+
+def randsig(max_T, amin=-1, amax=1, fmin=2, fmax=10, rng=RNG):
+    """Creates function that interpolates a uniform freq random signal.
+    
+    Args:
+        max_T (float): Domain of the function will be [0, max_T].
+        amin (float): Minimum amplitude.
+        amax (float): Maximum amplitude.
+        fmin (float): Minimum frequency in oscillations per second.
+            Must be greater than zero.
+        fmax (float): Maximum frequency in oscillations per second.
+            Must be greater than frequency_min.
+        rng (np.random.RandomState): Random number generator.
+
+    Returns:
+        CubicSpline: A cubic spline interpolation of a randomly oscilating 
+            signal.
+    """
+    return scipy.interpolate.CubicSpline(
+        *uniform_frequency_dist_random_signal(
+            max_T, amplitude_min=amin, amplitude_max=amax,
+            frequency_min=fmin, frequency_max=fmax, rng=rng
+        ),
+        bc_type="clamped", extrapolate=False,
+    )
 
 
 class ArithmeticBrownianMotion(DataGenerator):
@@ -1912,6 +1994,357 @@ class VARMA3LotkaVoltera(DataGenerator):
         )
 
 
+class LotkaVolteraConfound(DataGenerator):
+
+    # Intervention signals
+    interv_sig = lambda self, t: 7.0
+    exog1 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(11)
+    )
+    exog2 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(14)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.LotkaVolteraSDE,
+            model_params={
+                "growth_rates": np.array([ 8.89666155,  9.27497536,  9.21819474, 10.26697586,  9.75141927]),
+                "capacities": np.array([11.35919604, 16.8903648 , 18.41747724, 14.25508997, 19.56926003]),
+                "interaction_mat": 0.5 * np.array([
+                    [0.0, 0.0, 0.0, 1.0, 1.0],
+                    [1.0, 0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0, 0.0],
+                ]),
+                "sigma": 0.0
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2, 3],
+                "signals": [self.exog1, self.exog2]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2, 3],
+                "signals": [self.interv_sig, self.exog1, self.exog2]
+            },
+            initial_condition=np.array([[8.25332906, 3.38215312, 5.75760548, 7.53301865, 8.27103937]]),
+            timestep=0.02,
+        )
+
+
+class LotkaVolteraMediator(DataGenerator):
+
+    # Intervention signals
+    interv_sig = lambda self, t: 10
+    exog1 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(13)
+    )
+    exog2 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(15)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.LotkaVolteraSDE,
+            model_params={
+                "growth_rates": np.array([8.2617336 , 8.66335721, 8.63889329, 9.64838287, 7.68741842]),
+                "capacities": np.array([13.91084807, 14.37881873, 13.72748903, 11.06953596, 14.78965454]),
+                "interaction_mat": 0.5 * np.array([
+                    [0.0, 0.0, 0.0, 0.0, 1.0],
+                    [0.0, 0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [1.0, 0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                ]),
+                "sigma": 0.0
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2, 4],
+                "signals": [self.exog1, self.exog2]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2, 4],
+                "signals": [self.interv_sig, self.exog1, self.exog2]
+            },
+            initial_condition=np.array([[2.41352145, 2.57145249, 1.84731557, 1.93864549, 8.1382767 ]]),
+            timestep=0.02,
+        )
+
+
+class LotkaVolteraBlockableConfound(DataGenerator):
+
+    # Intervention signals
+    interv_sig = lambda self, t: 10
+    exog1 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(14)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.LotkaVoltera,
+            model_params={
+                "growth_rates": np.array([11.10334803,  8.72021588, 10.64815245,  8.80041956, 11.0718007 ]),
+                "capacities": np.array([11.03562434, 12.89089837, 16.61571739, 17.01295764, 14.38680003]),
+                "interaction_mat": 0.5 *  np.array([
+                    [0.0, 0.0, 1.0, 0.0, 0.0],
+                    [1.0, 0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, 0.0],
+                ])
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2],
+                "signals": [self.exog1]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2],
+                "signals": [self.interv_sig, self.exog1]
+            },
+            initial_condition=np.array([[4.81406604, 7.39983144, 4.38964096, 9.59872839, 3.09459043]]),
+            timestep=0.02,
+        )
+
+
+# Coupled Map Lattice Data Generators
+class CoupledLogisticMapConfound(DataGenerator):
+
+    # Intervention signals
+    interv_sig = lambda self, t: 0.4
+    exog1 = randsig(
+        max_T=11_000, amax=0.6, amin=0.4,
+        fmax=3, fmin=0.2, rng=np.random.default_rng(11) 
+    )
+    exog2 = randsig(
+        max_T=11_000, amax=0.6, amin=0.4,
+        fmax=3, fmin=0.2, rng=np.random.default_rng(14)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.coupled_logistic_map,
+            model_params={
+                "logistic_param": 3.72,
+                "eps": 0.5,
+                "adjacency_matrix": 0.5 * np.array([
+                    [1.0, 0.0, 0.0, 1.0, 1.0],
+                    [1.0, 1.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0, 1.0],
+                ]),
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2, 3],
+                "signals": [self.exog1, self.exog2]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2, 3],
+                "signals": [self.interv_sig, self.exog1, self.exog2]
+            },
+            initial_condition=np.array([[0.69274337, 0.81581711, 0.34440676, 0.04483818, 0.57159726]]),
+            timestep=1.0,
+        )
+
+
+class CoupledLogisticMapBlockableConfound(DataGenerator):
+
+    # Intervention signals
+    interv_sig = lambda self, t: 0.4
+    exog1 = randsig(
+        max_T=11_000, amax=0.6, amin=0.4,
+        fmax=3, fmin=0.2, rng=np.random.default_rng(11)
+    )
+    exog2 = randsig(
+        max_T=11_000, amax=0.6, amin=0.4,
+        fmax=3, fmin=0.2, rng=np.random.default_rng(14)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.coupled_logistic_map,
+            model_params={
+                "logistic_param": 3.72,
+                "eps": 0.5,
+                "adjacency_matrix": 0.5 *  np.array([
+                    [1.0, 0.0, 1.0, 0.0, 0.0],
+                    [1.0, 1.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 1.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, 0.0],
+                ]),
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2],
+                "signals": [self.exog1]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2],
+                "signals": [self.interv_sig, self.exog1]
+            },
+            initial_condition=np.array([[0.31268323, 0.22431822, 0.18200973, 0.86017865, 0.85754249]]),
+            timestep=1.0,
+        )
+
+
+# Wilson Cowan Data Generators.
+WC_MAX_NUM_STEPS = 11_000
+WC_TIMESTEP = 0.02
+WC_AMAX = 0.6
+WC_AMIN = 0.3
+WC_FMAX = 3.0
+WC_FMIN = 2
+WC_MAX_T = WC_TIMESTEP * WC_MAX_NUM_STEPS
+
+WC_SLOPE = 2
+WC_THRESH = 0.5
+
+WC_MULTI_CONF_INTERV_CONST = 0.55
+
+class WilsonCowanMultiConf(DataGenerator):
+
+    interv_sig = lambda self, t: WC_MULTI_CONF_INTERV_CONST
+    exog = randsig(
+        max_T=WC_MAX_T, amax=WC_AMAX, amin=WC_AMIN, fmax=WC_FMAX, fmin=WC_FMIN,
+        rng=np.random.default_rng(123)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.WilsonCowan,
+            model_params={
+                "tau": WC_SLOPE,
+                "mu": WC_THRESH,
+                "adjacency_matrix": np.array([
+                    [0.0, 0.0, 1.0, 0.0],
+                    [1.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0],
+                ]),
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2],
+                "signals": [self.exog],
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2],
+                "signals": [self.interv_sig, self.exog],
+            },
+            initial_condition=np.array([[0.15366136, 0.1693033 , 0.50596431, 0.65811887]]),
+            timestep=WC_TIMESTEP,
+        )
+
+
+WC_DOWNSTREAM_INTERV_CONST = 0.55
+
+class WilsonCowanDownstream(DataGenerator):
+
+    interv = lambda self, t: WC_DOWNSTREAM_INTERV_CONST
+    exog = randsig(
+        max_T=WC_MAX_T, amax=WC_AMAX, amin=WC_AMIN, fmax=WC_FMAX, fmin=WC_FMIN,
+        rng=np.random.default_rng(124)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.WilsonCowan,
+            model_params={
+                "tau": WC_SLOPE,
+                "mu": WC_THRESH,
+                "adjacency_matrix": np.array([
+                    [0.0, 0.0, 1.0, 0.0],
+                    [1.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                ]),
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2],
+                "signals": [self.exog],
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2],
+                "signals": [self.interv, self.exog],
+            },
+            initial_condition=np.array([[0.76758088, 0.10922746, 0.79759653, 0.96874591]]),
+            timestep=WC_TIMESTEP,
+        )
+
+
+class Lorenz(DataGenerator):
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.Lorenz,
+            model_params={},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 15.0},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669],
+                [0.8102566 ,  0.10224813, -0.35046573]
+            ]),
+            start_time=0,
+            timestep=0.02,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
+class Rossler(DataGenerator):
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.Rossler,
+            model_params={},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 4.0},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669],
+                [0.8102566 ,  0.10224813, -0.35046573]
+            ]),
+            start_time=0,
+            timestep=0.05,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
+class Thomas(DataGenerator):
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.Thomas,
+            model_params={},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 3.0},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669],
+                [0.8102566 ,  0.10224813, -0.35046573]
+            ]),
+            start_time=0,
+            timestep=0.1,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
 ALL_MODELS = [
     ArithmeticBrownianMotion,
     AttractingFixedPoint4D,
@@ -1952,4 +2385,13 @@ ALL_MODELS = [
     VARMA1SpatiotempChaos,
     VARMA2ChaoticBrownian,
     VARMA3LotkaVoltera, 
+    LotkaVolteraConfound,
+    LotkaVolteraMediator,
+    CoupledLogisticMapConfound,
+    CoupledLogisticMapBlockableConfound,
+    WilsonCowanDownstream,
+    WilsonCowanMultiConf,
+    Lorenz,
+    Rossler,
+    Thomas,
 ]
