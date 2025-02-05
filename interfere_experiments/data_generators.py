@@ -67,6 +67,7 @@ class DataGenerator:
         self,
         num_train_obs: int = 100,
         num_forecast_obs: int = 50,
+        num_burn_in_states: int = 0,
     ) -> control_vs_resp.ControlVsRespData:
         """Generates data from the model.
 
@@ -75,15 +76,27 @@ class DataGenerator:
                 generate. Defaults to 100.
             num_forecast_obs (int): The number of forecast data observations to
                 generate. Defaults to 50.
+            num_burn_in_obs (int): Number of observations to chop off the beginning 
+                of the generated data. This is used to remove the effect of 
+                transient states due to the initial condition.
 
         Returns:
             ControlVsRespData: The generated data.
         """
-        return control_vs_resp.generate_data(
+        if (
+            (num_burn_in_states < 0) or (num_forecast_obs < 0) or (num_train_obs < 0)
+        ):
+            raise ValueError(
+                f"The variables num_train_obs = {num_train_obs}, "
+                "num_forecast_obs = {num_forecast_obs}, and num_burn_in_states "
+                "= {num_burn_in_states} must be greater than zero."
+            )
+        
+        data = control_vs_resp.generate_data(
             self.model_type(**self.model_params),
-            num_train_obs,
-            num_forecast_obs,
-            self.timestep,
+            num_train_obs=num_train_obs + num_burn_in_states,
+            num_forecast_obs=num_forecast_obs,
+            timestep=self.timestep,
             do_intervention=self.do_intervention_type(
                 **self.do_intervention_params),
             obs_intervention=self.obs_intervention_type(
@@ -92,6 +105,31 @@ class DataGenerator:
             train_prior_states=self.initial_condition,
             rng=self.rng
         )
+
+        # Collect all training data
+        all_train_states = np.vstack([
+            # Drop last prior state because it is same as the first train state.
+            data.train_prior_states[:-1, :],
+            data.train_states
+        ])
+
+        # Drop last prior time because it is same as the first train time.
+        all_times = np.hstack([data.train_prior_t[:-1], data.train_t])
+
+        num_prior_obs = len(data.train_prior_t)
+
+        # Remove burn in state observations.
+        data.train_states = all_train_states[-num_train_obs:]
+        data.train_prior_states = all_train_states[
+            -(num_prior_obs + num_train_obs) + 1:(-num_train_obs + 1)
+        ]
+
+        # Adjust burn in times to match states.
+        data.train_t = all_times[-num_train_obs:]
+        data.train_prior_t = all_times[
+            -(num_prior_obs + num_train_obs) + 1:(-num_train_obs + 1)
+        ]
+        return data
 
 
 class ArithmeticBrownianMotion(DataGenerator):
