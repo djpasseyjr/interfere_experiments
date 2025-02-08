@@ -278,7 +278,7 @@ def test_cvr_cv_init():
     assert cv.metric_direction == "minimize"
     assert cv.hyperparam_func == interfere.methods.VAR._get_optuna_params
     assert cv.store_preds == True
-    assert cv.intervention == interfere.IdentityIntervention()
+    assert cv.intervention == interfere.PerfectIntervention([], [])
     assert cv.trial_results == {}
     assert cv.num_obs == 100
     assert cv.num_val_chunks == 2
@@ -356,15 +356,14 @@ def test_cvr_cv_init_raises():
 
 
 @pytest.mark.parametrize("val_scheme", ["forecast", "last", "all"])
-@pytest.mark.parametrize("interv", [None, interfere.PerfectIntervention(0, 1)])
-def test_cvr_cv_call(
-    val_scheme: str,interv: interfere.interventions.ExogIntervention):
+@pytest.mark.parametrize("exog_idxs", [None, [0]])
+def test_cvr_cv_call(val_scheme: str, exog_idxs: list[int]):
     """Tests the __call__ method of the CVRCrossValObjective class.
 
     Args:
         val_scheme: The validation scheme to use. One of ["forecast",
             "last", "all].
-        interv (interfere.interventions.ExogIntervention): An intervention.
+        exog_idxs (list[int]): An list of exogenous indexs. Can be None.
     """
     # Build a mock method type.
     mock_method = Mock()
@@ -383,7 +382,7 @@ def test_cvr_cv_call(
         "hyperparam_func": Mock(return_value={}),
         "store_preds": True,
         "val_scheme": val_scheme,
-        "intervention": interv
+        "exog_idxs": exog_idxs
     })
 
     # Make a mock trial.
@@ -405,7 +404,8 @@ def test_cvr_cv_call(
     )
 
     # Check that hyper parameter and method type are called once each.
-    cv.hyperparam_func.assert_called_once_with(trial)
+    cv.hyperparam_func.assert_called_once_with(
+        trial, max_lags=10, max_horizon=50)
     mock_method_type.assert_called_once_with()
 
     # Check that fit is called the correct number of times.
@@ -458,23 +458,22 @@ def test_cvr_cv_call(
 
 
 @pytest.mark.parametrize("val_scheme", ["forecast", "last", "all"])
-@pytest.mark.parametrize("interv", [None, interfere.PerfectIntervention(0, 1)])
-def test_cvr_cv_call_no_store_preds(
-    val_scheme: str,interv: interfere.interventions.ExogIntervention):
+@pytest.mark.parametrize("exog_idxs", [None, [0]])
+def test_cvr_cv_call_no_store_preds(val_scheme: str,  exog_idxs: list[int]):
     """Tests the __call__ method of the CVRCrossValObjective class when
     store_preds is False.
 
     Args:
         val_scheme: The validation scheme to use. One of ["forecast",
             "last", "all].
-        interv (interfere.interventions.ExogIntervention): An intervention.
+        exog_idxs (list[int]): An list of exogenous indexs. Can be None.
     """
     cv = CVRCrossValObjective(**{
         **DEFAULT_CV_ARGS,
         "store_preds": False,
         "val_scheme": val_scheme,
         "hyperparam_func": Mock(return_value={}),
-        "intervention": interv
+        "exog_idxs": exog_idxs
     })
 
     # Make a mock trial.
@@ -595,6 +594,3 @@ def test_cvr_cv_call_methods(
     score = study.best_value
 
     assert isinstance(score, float)
-
-
-test_cvr_cv_call_methods(interfere.methods.ARIMA, "last")

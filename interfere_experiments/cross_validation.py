@@ -18,11 +18,11 @@ class CVRCrossValObjective:
         times: np.ndarray,
         train_window_percent: float,
         num_folds: int,
+        exog_idxs: Optional[list[int]] = None,
         val_scheme: str = "forecast",
         num_val_prior_states: int = 10,
         metric: interfere.metrics.CounterfactualForecastingMetric = RMSSE(),
         metric_direction: str = "minimize",
-        intervention: Optional[interfere.ExogIntervention] = None,
         hyperparam_func: Optional[
             Callable[[Trial], Dict[str, Any]]] = None,
         store_preds: bool = True,
@@ -46,6 +46,7 @@ class CVRCrossValObjective:
             val_scheme (str): The type of validation scheme to use.
                 One of ["forecast", "last", "all"]. See notes section for
                 more details.
+            exog_idxs (list[int]): A list of exogenous variable column indexes.
             num_val_prior_states (int): Designates how many observations to use
                 as initial condition/prior state for prediction.
             metric (interfere.metrics.CounterfactualForecastingMetric): Metric
@@ -131,9 +132,13 @@ class CVRCrossValObjective:
         self.repl_nan_val = repl_nan_val
 
         # Assign default intervention.
-        if intervention == None:
-            intervention = interfere.IdentityIntervention()
-        self.intervention = intervention
+        if exog_idxs == None:
+            exog_idxs = []
+
+        # Create a dummy intervention to handle exogenous.
+        self.intervention = interfere.PerfectIntervention(
+                exog_idxs, [np.nan for _ in exog_idxs])
+
         self.trial_results = {}
 
         if self.num_folds <= 1:
@@ -267,6 +272,7 @@ class CVRCrossValObjective:
                 window_start, window_end = train_idx
                 train_t = self.times[window_start:window_end]
                 train_states = self.data[window_start:window_end, :]
+
                 train_endog, train_exog = self.intervention.split_exog(
                     train_states)
 
@@ -286,6 +292,7 @@ class CVRCrossValObjective:
                     val_prior_states = self.data[
                         val_prior_start:val_prior_end, :]
 
+
                     val_prior_en, val_prior_ex = self.intervention.split_exog(
                         val_prior_states)
 
@@ -299,6 +306,7 @@ class CVRCrossValObjective:
 
                     val_t = self.times[val_start:val_end]
                     val_states = self.data[val_start:val_end, :]
+
                     true_val_en, val_ex = self.intervention.split_exog(
                         val_states)
 
