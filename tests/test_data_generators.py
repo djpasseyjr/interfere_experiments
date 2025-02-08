@@ -56,3 +56,20 @@ def test_burn_in():
     i_star = np.argmin(np.abs(offset_diffs))
 
     assert np.all(no_burn.train_t[i_star + 1:] == burn.train_t[:-(i_star + 1)])
+
+
+def test_random_sig():
+
+    # Check that amplitude works as expected.
+    sig1 = ie.data_generators.randsig(10, amax=1)
+    sig2 = ie.data_generators.randsig(10, amax=3)
+
+    t = np.linspace(0, 10, 1000)
+
+    assert np.mean(sig1(t)) < np.mean(sig2(t))
+
+    # Check that frequency works as expected.
+    sig1 = ie.data_generators.randsig(10, fmax=10)
+    sig2 = ie.data_generators.randsig(10, fmax=3)
+
+    assert np.std(sig1(t)) > np.std(sig2(t))
