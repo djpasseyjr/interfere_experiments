@@ -12,7 +12,7 @@ import optuna
 import scipy.interpolate
 
 DATA_FILE = sys.argv[1]
-SAVE_DIR = ""#"/work/users/d/j/djpassey/interfere_exp11.0/"
+SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp12.0/"
 METHODS = [
     interfere.methods.AverageMethod,
     interfere.methods.VAR,
