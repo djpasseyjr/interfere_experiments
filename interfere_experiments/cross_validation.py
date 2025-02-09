@@ -266,6 +266,7 @@ class CVRCrossValObjective:
             cv_results["val_scheme"] =  self.val_scheme
 
         for train_idx, val_idxs in zip(self.train_window_idxs, self.val_chunk_idxs):
+
             # Check if training fold corresponds to a validation index.
             if val_idxs != []:
                 # Prepare train data.
@@ -276,8 +277,19 @@ class CVRCrossValObjective:
                 train_endog, train_exog = self.intervention.split_exog(
                     train_states)
 
-                # Fit method.
-                method.fit(train_t, train_endog, train_exog)
+                # Try except block for method fitting.
+                try:
+                    method.fit(train_t, train_endog, train_exog)
+                    is_fit = True
+                    fit_error = "No Fit Error"
+
+                except Exception as e:
+                    if self.raise_errors:
+                            raise e
+                    is_fit = False
+                    fit_error = str(e) + f"\n\n{traceback.format_exc()}"
+                    
+
 
             # Compute validation scores.
             for val_idx in val_idxs:
@@ -311,6 +323,10 @@ class CVRCrossValObjective:
                         val_states)
 
                     try:
+
+                        if not is_fit:
+                            raise ValueError(
+                                f"Error in model fit: \n\n{fit_error}")
 
                         # Make prediction.
                         pred_val_en = method.predict(
