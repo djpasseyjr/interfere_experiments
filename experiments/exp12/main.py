@@ -24,20 +24,20 @@ METHODS = [
 
 ]
 OPTUNA_TRIALS_DICT = {
-    interfere.methods.AverageMethod: 2, #1,
-    interfere.methods.VAR: 2, #51,
-    interfere.methods.SINDY: 2, #101,
-    interfere.methods.ResComp: 2, #201,
-    interfere.methods.ARIMA: 2, #51,
-    interfere.methods.NHITS: 2, #101,
-    interfere.methods.LSTM: 2, #101,
+    interfere.methods.AverageMethod: 1,
+    interfere.methods.VAR: 51,
+    interfere.methods.SINDY: 101,
+    interfere.methods.ResComp: 201,
+    interfere.methods.ARIMA: 51,
+    interfere.methods.NHITS: 101,
+    interfere.methods.LSTM: 101,
 }
 
 TRAIN_WINDOW_PERCENT = 0.5
 NUM_FOLDS = 3
 NUM_VAL_PRIOR_STATES = 25
 METRIC = interfere.metrics.RootMeanStandardizedSquaredError()
-NUM_TRAIN_OBS_LIST = [100]#, 200, 500, 1000, 2000, 3000, 4000, 5000]
+NUM_TRAIN_OBS_LIST = [100, 200, 500, 1000, 2000, 3000, 4000, 5000]
 
 data_name = os.path.basename(DATA_FILE).split(".")[0]
 
@@ -131,12 +131,12 @@ try:
                 num_val_prior_states=NUM_VAL_PRIOR_STATES,
                 metric=METRIC,
                 store_preds=True,
-                raise_errors=True,
+                raise_errors=False,
                 exog_idxs=train_exog_idxs,
             )
 
             study = optuna.create_study(
-                study_name=method_type.__name__ + " on " + data_name)
+                study_name=method_type.__name__ + " on " + data_name + f"({num_train_obs})")
             n_trials = OPTUNA_TRIALS_DICT[method_type]
             study.optimize(objv, n_trials=n_trials)
 
@@ -183,7 +183,7 @@ try:
                 # Causal prediction error.
                 causal_error = METRIC(
                     all_train_states[:, [target_idx]],
-                    all_forecast_states[:, [target_idx]],
+                    all_causal_resp_states[:, [target_idx]],
                     causal_pred[:, [target_idx]],
                     []
                 )
