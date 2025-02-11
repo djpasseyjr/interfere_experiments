@@ -18,7 +18,7 @@ if len(sys.argv) > 2:
     METHOD_GROUP = sys.argv[2]
 
 
-SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp12.0/"
+SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp12.1/"
 ALL_METHODS = [
     interfere.methods.AverageMethod,
     interfere.methods.VAR,
