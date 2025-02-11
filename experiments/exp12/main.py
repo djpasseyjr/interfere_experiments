@@ -65,8 +65,8 @@ data_name = os.path.basename(DATA_FILE).split(".")[0]
 with open(DATA_FILE, "r") as f:
     data = json.load(f)
 
-score_file = SAVE_DIR + data_name + "_scores.pkl"
-pred_file = SAVE_DIR + data_name + "_preds.pkl"
+score_file = SAVE_DIR + data_name + f"_scores[{str(METHOD_GROUP)}].pkl"
+pred_file = SAVE_DIR + data_name + f"_preds[{str(METHOD_GROUP)}].pkl"
 
 # Load train data.
 all_train_states = np.array(data["train_states"])
