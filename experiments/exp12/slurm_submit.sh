@@ -13,6 +13,6 @@ FLAGS="--ntasks=1 --mem=${GIGS}G  --cpus-per-task=1 --time=$HOURS_PER_SIM:00:00"
 
 for file in "$DATA_DIR"/*.json
 do
-    args="$FLAGS  $EXP_RUNNER $file"
+    args="$FLAGS  $EXP_RUNNER $file $1"
     sbatch $args
 done

@@ -11,18 +11,39 @@ import numpy as np
 import optuna
 import scipy.interpolate
 
+# Collect script arguments
 DATA_FILE = sys.argv[1]
+METHOD_GROUP = None
+if len(sys.argv) > 2:
+    METHOD_GROUP = sys.argv[2]
+
+
 SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp12.0/"
-METHODS = [
+ALL_METHODS = [
     interfere.methods.AverageMethod,
     interfere.methods.VAR,
     interfere.methods.SINDY,
     interfere.methods.ResComp,
     interfere.methods.ARIMA,
     interfere.methods.LSTM,
-    interfere.methods.NHITS,
-
 ]
+FAST_METHODS = [
+    interfere.methods.AverageMethod,
+    interfere.methods.VAR,
+    interfere.methods.SINDY,
+    interfere.methods.ResComp,
+]
+
+METHOD_GROUPS = {
+    None: ALL_METHODS,
+    "FAST": FAST_METHODS,
+    "ARIMA": [interfere.methods.ARIMA],
+    "NHITS": [interfere.methods.NHITS],
+    "LSTM": [interfere.methods.LSTM]
+}
+
+METHODS = METHOD_GROUPS[METHOD_GROUP]
+
 OPTUNA_TRIALS_DICT = {
     interfere.methods.AverageMethod: 1,
     interfere.methods.VAR: 51,
@@ -93,8 +114,8 @@ do_interv = interfere.SignalIntervention(
 
 # Initialize empty results dictionaries
 score_df_cols = [
-     "Method", "Obs", "Forecast Error", "Causal Error", 
-     "Duration", "Trials", "Size", "Errors"
+     "Dynamics", "Method", "Obs", "ForecastError", "CausalError", 
+     "Duration", "Trials", "Size", "Exceptions"
 ]
 score_array = []
 
@@ -171,6 +192,8 @@ try:
 
             # Causal prediction.
             try:
+                best_params = study.best_params
+
                 do_method = method_type(**best_params)
                 do_method.fit(train_times, *do_interv.split_exog(train_states))
                 causal_pred = do_method.simulate(
@@ -193,19 +216,30 @@ try:
                 causal_pred = None
                 errors += f"\n\nERROR {e}" + str(traceback.format_exc())
 
+            
+            try:
+                best_trial_idx = study.best_trial.number
+            except ValueError as e:
+                print(
+                    "Error finding best trial: "
+                    f"\n\n{e}\n\n{traceback.format_exc()}"
+                )
+                best_trial_idx = 0
+
+
             end_time = datetime.now()
             duration = str(end_time - start_time)
-            pred_sz = len(pickle.dumps(objv.trial_results[study.best_trial.number]))
+            pred_sz = len(pickle.dumps(objv.trial_results[best_trial_idx]))
 
             # Save scores.
             score_array.append([
-                 method_type.__name__, num_train_obs, fcast_error, causal_error,
-                 duration, n_trials, pred_sz, errors
+                data_name, method_type.__name__, num_train_obs, fcast_error, causal_error,
+                duration, n_trials, pred_sz, errors
             ])
 
             # Save predictions.
             predictions[method_type.__name__][num_train_obs][
-                "train_pred"] = objv.trial_results[study.best_trial.number]
+                "train_pred"] = objv.trial_results[best_trial_idx]
             predictions[method_type.__name__][num_train_obs][
                 "forecast_pred"] = forecast_pred
             predictions[method_type.__name__][num_train_obs][
