@@ -2,7 +2,7 @@ from typing import Type
 
 import pytest
 import numpy as np
-
+import interfere
 import interfere_experiments as ie
 
 
@@ -73,3 +73,56 @@ def test_random_sig():
     sig2 = ie.data_generators.randsig(10, fmax=3)
 
     assert np.std(sig1(t)) > np.std(sig2(t))
+
+# Test on only the first ten generators to save time.
+@pytest.mark.parametrize("dg_type", [
+    ie.data_generators.AttractingFixedPoint4D,
+])
+def test_generate_data_and_downsample(
+        dg_type: type[ie.data_generators.DataGenerator]
+    ):
+    """Tests that generate_data_and_downsample produces the correct data.
+    """
+    new_timestep = 0.00001
+    dg = dg_type()
+    dg.model_params["sigma"] = 0.0
+
+    data1 = dg.generate_data(
+        num_train_obs = 10,
+        num_forecast_obs = 5,
+        num_burn_in_states = 5,
+    )
+
+
+    # If the model is discrete time, assert error is raised.
+    if isinstance(
+        dg.model_type, interfere.dynamics.base.DiscreteTimeDynamics):
+        with pytest.raises(NotImplementedError):
+            dg.generate_data_and_downsample(
+                new_timestep = new_timestep,
+                num_train_obs = 10,
+                num_forecast_obs = 5,
+                num_burn_in_states = 5,
+            ) 
+    else:
+        # Test the downsample method.
+        data2 = dg.generate_data_and_downsample(
+            new_timestep = new_timestep,
+            num_train_obs = 10,
+            num_forecast_obs = 5,
+            num_burn_in_states = 5,
+        )        
+
+        assert np.allclose(
+            data1.train_prior_t, data2.train_prior_t, atol=0.1, rtol=0)
+        assert np.allclose(
+            data1.train_prior_states, data2.train_prior_states, atol=0.1, rtol=0
+        )
+        assert np.allclose(data1.train_t, data2.train_t, atol=0.1, rtol=0)
+        assert np.allclose(
+            data1.train_states, data2.train_states, atol=0.1, rtol=0)
+        assert np.allclose(data1.forecast_t, data2.forecast_t, atol=0.1, rtol=0)
+        assert np.allclose(
+            data1.forecast_states, data2.forecast_states, atol=0.1, rtol=0)
+        assert np.allclose(
+            data1.interv_states, data2.interv_states, atol=0.1, rtol=0)

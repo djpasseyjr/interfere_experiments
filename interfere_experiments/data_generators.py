@@ -133,6 +133,89 @@ class DataGenerator:
         return data
 
 
+    def generate_data_and_downsample(
+        self, 
+        new_timestep,
+        num_train_obs = 100,
+        num_forecast_obs = 50,
+        num_burn_in_states = 0,
+    ) -> control_vs_resp.ControlVsRespData:
+        """Generates data using new_timestep and then downsamples it.
+        Used for dynamics where timestep must be small to prevent numerical
+        instabilities.
+
+        Args:
+            new_timestep (float): The timestep to downsample to.
+            num_train_obs (int): Number of training observations.
+            num_forecast_obs (int): Number of forecast observations.
+            num_burn_in_states (int): Number of burn-in states.
+
+        Returns:
+            Data (ControlVsRespData): The generated data.
+
+        """
+        if isinstance(
+            self.model_type, interfere.dynamics.base.DiscreteTimeDynamics):
+            raise NotImplementedError(
+                "Down sampling not implemented for discrete time dynamics"
+            )
+
+        if self.timestep < new_timestep:
+            return self.generate_data(
+                num_train_obs,
+                num_forecast_obs,
+                num_burn_in_states
+            )
+
+        else:
+            # Simulate with smaller timestep and downsample.
+            down_sample_rate = int(self.timestep / new_timestep)
+            old_timestep = self.timestep
+            self.timestep = self.timestep / down_sample_rate
+
+            # Adjust initial condition.
+            old_initial_cond = self.initial_condition
+
+            # If there is only a single prior state, make copies.
+            if old_initial_cond.shape[0] == 1:
+                new_initial_cond = np.vstack(
+                    [old_initial_cond] * down_sample_rate
+                )
+
+            # Else, increase the number of prior observations via interpolation.
+            else:
+                prior_t = np.arange(old_initial_cond.shape[0])
+
+                initial_cond_interp = scipy.interpolate.interp1d(
+                    prior_t, old_initial_cond, axis=0)
+                
+                dt = 1 / down_sample_rate
+                new_prior_t = np.arange(
+                    0, old_initial_cond.shape[0] - 1 + dt, dt)
+                new_initial_cond = initial_cond_interp(new_prior_t)
+
+            self.initial_condition = new_initial_cond
+            
+            data = self.generate_data(
+                num_train_obs * down_sample_rate,
+                num_forecast_obs * down_sample_rate,
+                num_burn_in_states * down_sample_rate
+            )
+
+            # Down sample data fields.
+            data.train_prior_t = data.train_prior_t[::down_sample_rate]
+            data.train_prior_states = data.train_prior_states[::down_sample_rate]
+            data.train_t = data.train_t[::down_sample_rate]
+            data.train_states = data.train_states[::down_sample_rate]
+            data.forecast_t = data.forecast_t[::down_sample_rate]
+            data.forecast_states = data.forecast_states[::down_sample_rate]
+            data.interv_states = data.interv_states[::down_sample_rate]
+
+            self.timestep = old_timestep
+            self.initial_condition = old_initial_cond
+            return data
+
+
 def uniform_frequency_dist_random_signal(
     total_time: float,
     amplitude_min: float = 0.0,
@@ -379,6 +462,96 @@ class CoupledLogisticMapAllToAll(DataGenerator):
             start_time=0,
             timestep=1,
             rng = np.random.default_rng(SEED)
+        )
+
+
+# Coupled Map Lattice Data Generators
+class CoupledLogisticMapConfound(DataGenerator):
+
+    target_idx = 1
+
+    # Intervention signals
+    interv_sig = lambda self, t: 0.4
+    exog1 = randsig(
+        max_T=11_000, amax=0.6, amin=0.4,
+        fmax=3, fmin=0.2, rng=np.random.default_rng(11) 
+    )
+    exog2 = randsig(
+        max_T=11_000, amax=0.6, amin=0.4,
+        fmax=3, fmin=0.2, rng=np.random.default_rng(14)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.coupled_logistic_map,
+            model_params={
+                "logistic_param": 3.72,
+                "eps": 0.5,
+                "adjacency_matrix": 0.5 * np.array([
+                    [1.0, 0.0, 0.0, 1.0, 1.0],
+                    [1.0, 1.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0, 1.0],
+                ]),
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2, 3],
+                "signals": [self.exog1, self.exog2]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2, 3],
+                "signals": [self.interv_sig, self.exog1, self.exog2]
+            },
+            initial_condition=np.array([[0.69274337, 0.81581711, 0.34440676, 0.04483818, 0.57159726]]),
+            timestep=1.0,
+        )
+
+
+class CoupledLogisticMapBlockableConfound(DataGenerator):
+
+    target_idx = 1
+
+
+    # Intervention signals
+    interv_sig = lambda self, t: 0.4
+    exog1 = randsig(
+        max_T=11_000, amax=0.6, amin=0.4,
+        fmax=3, fmin=0.2, rng=np.random.default_rng(11)
+    )
+    exog2 = randsig(
+        max_T=11_000, amax=0.6, amin=0.4,
+        fmax=3, fmin=0.2, rng=np.random.default_rng(14)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.coupled_logistic_map,
+            model_params={
+                "logistic_param": 3.72,
+                "eps": 0.5,
+                "adjacency_matrix": 0.5 *  np.array([
+                    [1.0, 0.0, 1.0, 0.0, 0.0],
+                    [1.0, 1.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 1.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, 0.0],
+                ]),
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2],
+                "signals": [self.exog1]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2],
+                "signals": [self.interv_sig, self.exog1]
+            },
+            initial_condition=np.array([[0.31268323, 0.22431822, 0.18200973, 0.86017865, 0.85754249]]),
+            timestep=1.0,
         )
 
 
@@ -698,6 +871,8 @@ class GeometricBrownianMotion2(DataGenerator):
 
 class HodgkinHuxley1(DataGenerator):
 
+    target_idx = 7
+
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.HodgkinHuxleyPyclustering,
@@ -723,12 +898,36 @@ class HodgkinHuxley1(DataGenerator):
                  -10.8672689 , -25.16636806]
             ]),
             start_time=0,
-            timestep=0.0001,
+            timestep=0.1,
             rng = np.random.default_rng(SEED)
         )
 
+    @interfere.utils.copy_doc(DataGenerator.generate_data)
+    def generate_data(
+        self, num_train_obs = 100,
+        num_forecast_obs = 50,
+        num_burn_in_states = 0
+    ):
+        # Stepsize must be small or forward Euler diverges.
+        if self.timestep > 0.002:
+            # Simulate with smaller timestep and downsample.
+            new_timestep = 0.001
+            return self.generate_data_and_downsample(
+                new_timestep,
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+        
+        else:
+            return super().generate_data(
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+            )
 
 class HodgkinHuxley2Chain(DataGenerator):
+
+    target_idx = 6
 
     def __init__(self):
         super().__init__(
@@ -756,9 +955,32 @@ class HodgkinHuxley2Chain(DataGenerator):
                 1.68306979,   9.1188609 ]
             ]),
             start_time=0,
-            timestep=0.0001,
+            timestep=0.1,
             rng = np.random.default_rng(SEED)
         )
+
+    @interfere.utils.copy_doc(DataGenerator.generate_data)
+    def generate_data(
+        self, num_train_obs = 100,
+        num_forecast_obs = 50,
+        num_burn_in_states = 0
+    ):
+        # Stepsize must be small or forward Euler diverges.
+        if self.timestep > 0.002:
+            # Simulate with smaller timestep and downsample.
+            new_timestep = 0.001
+            return self.generate_data_and_downsample(
+                new_timestep,
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+        
+        else:
+            return super().generate_data(
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+            )
 
 
 class HodgkinHuxley3Grid(DataGenerator):
@@ -1130,6 +1352,47 @@ class Liping3DQuadFinance1(DataGenerator):
         )
 
 
+
+
+class Lorenz1(DataGenerator):
+
+    target_idx = 1
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.Lorenz,
+            model_params={},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 15.0},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669],
+                [0.8102566 ,  0.10224813, -0.35046573]
+            ]),
+            start_time=0,
+            timestep=0.02,
+            rng = np.random.default_rng(SEED)        
+        )
+
+class Lorenz2(DataGenerator):
+
+    target_idx = 0
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.Lorenz,
+            model_params={"beta": 3, "rho": 32, "s": 12},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 1, "constants": -10.0},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669],
+                [0.8102566 ,  0.10224813, -0.35046573]
+            ]),
+            start_time=0,
+            timestep=0.02,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
 class Liping3DQuadFinance2(DataGenerator):
 
     target_idx = 1
@@ -1356,6 +1619,534 @@ class LotkaVoltera4(DataGenerator):
         )
 
 
+
+class LotkaVolteraConfound(DataGenerator):
+
+    target_idx = 1
+
+    # Intervention signals
+    interv_sig = lambda self, t: 7.0
+    exog1 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(11)
+    )
+    exog2 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(14)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.LotkaVolteraSDE,
+            model_params={
+                "growth_rates": np.array([ 8.89666155,  9.27497536,  9.21819474, 10.26697586,  9.75141927]),
+                "capacities": np.array([11.35919604, 16.8903648 , 18.41747724, 14.25508997, 19.56926003]),
+                "interaction_mat": 0.5 * np.array([
+                    [0.0, 0.0, 0.0, 1.0, 1.0],
+                    [1.0, 0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0, 0.0],
+                ]),
+                "sigma": 0.0
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2, 3],
+                "signals": [self.exog1, self.exog2]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2, 3],
+                "signals": [self.interv_sig, self.exog1, self.exog2]
+            },
+            initial_condition=np.array([[8.25332906, 3.38215312, 5.75760548, 7.53301865, 8.27103937]]),
+            timestep=0.02,
+        )
+
+
+class LotkaVolteraMediator(DataGenerator):
+
+    target_idx = 1
+
+
+    # Intervention signals
+    interv_sig = lambda self, t: 10
+    exog1 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(13)
+    )
+    exog2 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(15)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.LotkaVolteraSDE,
+            model_params={
+                "growth_rates": np.array([8.2617336 , 8.66335721, 8.63889329, 9.64838287, 7.68741842]),
+                "capacities": np.array([13.91084807, 14.37881873, 13.72748903, 11.06953596, 14.78965454]),
+                "interaction_mat": 0.5 * np.array([
+                    [0.0, 0.0, 0.0, 0.0, 1.0],
+                    [0.0, 0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [1.0, 0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                ]),
+                "sigma": 0.0
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2, 4],
+                "signals": [self.exog1, self.exog2]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2, 4],
+                "signals": [self.interv_sig, self.exog1, self.exog2]
+            },
+            initial_condition=np.array([[2.41352145, 2.57145249, 1.84731557, 1.93864549, 8.1382767 ]]),
+            timestep=0.02,
+        )
+
+
+class LotkaVolteraBlockableConfound(DataGenerator):
+
+    target_idx = 1
+
+
+    # Intervention signals
+    interv_sig = lambda self, t: 10
+    exog1 = randsig(
+        max_T=300, amax=6, amin=3,
+        fmax=3, rng=np.random.default_rng(14)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.LotkaVolteraSDE,
+            model_params={
+                "growth_rates": np.array([11.10334803,  8.72021588, 10.64815245,  8.80041956, 11.0718007 ]),
+                "capacities": np.array([11.03562434, 12.89089837, 16.61571739, 17.01295764, 14.38680003]),
+                "interaction_mat": 0.5 *  np.array([
+                    [0.0, 0.0, 1.0, 0.0, 0.0],
+                    [1.0, 0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, 0.0],
+                ]),
+                "sigma": 0.0
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2],
+                "signals": [self.exog1]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 2],
+                "signals": [self.interv_sig, self.exog1]
+            },
+            initial_condition=np.array([[4.81406604, 7.39983144, 4.38964096, 9.59872839, 3.09459043]]),
+            timestep=0.02,
+        )
+
+
+class MichaelisMenten1(DataGenerator):
+
+    target_idx = 4
+
+    interv_sig = lambda self, t: 3.0
+    exog = randsig(
+            max_T=1000, amax=1, amin=0,
+            fmax=5, fmin=1/10, rng=np.random.default_rng(101)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.MichaelisMenten,
+            model_params={
+                "adjacency_matrix": 0.5 * np.array([
+                    [1.0, 1.0, -1.0, 0.0, 1.0],
+                    [1.0, 1.0, 0.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, -1.0],
+                    [0.0, -1.0, 0.0, 1.0, 0.0],
+                    [1.0, 1.0, 1.0, 1.0, 1.0],
+                ]),
+                "h": 2,
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [1], "signals": [self.exog]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 1], "signals": [
+                    self.interv_sig, self.exog]},
+            initial_condition=np.array([
+                [0.82302224, 0.09089006, 0.68957824, 0.53722689, 0.99534445],
+                [0.94453027, 0.06492306, 0.76213131, 0.48935338, 0.15360667]
+            ]),
+            start_time=0,
+            timestep=0.05,
+            rng = np.random.default_rng(SEED)        
+        )        
+
+
+class MichaelisMenten2(DataGenerator):
+
+    target_idx = 2
+
+    interv_sig = lambda self, t: 4.0
+    exog = randsig(
+            max_T=1000, amax=1, amin=0,
+            fmax=5, fmin=1/10, rng=np.random.default_rng(101)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.MichaelisMenten,
+            model_params={
+                "adjacency_matrix": 0.5 * np.array([
+                    [1.0, 1.0, -1.0, 0.0, 1.0],
+                    [1.0, 1.0, 0.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, -1.0],
+                    [0.0, -1.0, 0.0, 1.0, 0.0],
+                    [1.0, 1.0, 1.0, 1.0, 1.0],
+                ]),
+                "h": 2,
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [1], "signals": [self.exog]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [4, 1], "signals": [
+                    self.interv_sig, self.exog]},
+            initial_condition=np.array([
+                [0.82302224, 0.09089006, 0.68957824, 0.53722689, 0.99534445],
+                [0.94453027, 0.06492306, 0.76213131, 0.48935338, 0.15360667]
+            ]),
+            start_time=0,
+            timestep=0.05,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
+class MichaelisMenten3(DataGenerator):
+
+    target_idx = 2
+
+    interv_sig = lambda self, t: -1.0
+    exog = randsig(
+        max_T=1000, amax=1, amin=0,
+        fmax=5, fmin=1/10, rng=np.random.default_rng(101)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.MichaelisMenten,
+            model_params={
+                "adjacency_matrix": 2 * np.array([
+                    [1.0, 1.0, 1.0, 0.0, 1.0],
+                    [0.0, 1.0, 0.0, 1.0, 0.0],
+                    [1.0, 1.0, 0.0, 0.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, 1.0],
+
+                ]),
+                "h": 4,
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [1], "signals": [self.exog]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [4, 1], "signals": [
+                    self.interv_sig, self.exog]},
+            initial_condition=np.array([
+                [0.82302224, 0.09089006, 0.68957824, 0.53722689, 0.99534445],
+                [0.94453027, 0.06492306, 0.76213131, 0.48935338, 0.15360667]
+            ]),
+            start_time=0,
+            timestep=0.05,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
+class MooreSpiegel1(DataGenerator):
+
+    target_idx = 2
+    max_timestep = 0.002
+    interv_sig = lambda self, t: -0.03
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.MooreSpiegel,
+            model_params={"R": 100, "T": 10},
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [1], "signals": [self.interv_sig]},
+            initial_condition=np.array([
+                [1., 1.0, 1.0],
+                [1., 1.0, 1.0]
+            ]),
+            start_time=0,
+            timestep=0.05,
+            rng = np.random.default_rng(SEED)     
+        )
+
+    @interfere.utils.copy_doc(DataGenerator.generate_data)
+    def generate_data(
+        self, num_train_obs = 100,
+        num_forecast_obs = 50,
+        num_burn_in_states = 0
+    ):
+        # Stepsize must be small or forward Euler diverges.
+        if self.timestep > 0.002:
+            # Simulate with smaller timestep and downsample.
+            new_timestep = 0.0005
+            return self.generate_data_and_downsample(
+                new_timestep,
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+        
+        else:
+            return super().generate_data(
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+
+
+class MooreSpiegel2(DataGenerator):
+
+    target_idx = 2
+    max_timestep = 0.002
+    interv_sig = lambda self, t: -0.03
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.MooreSpiegel,
+            model_params={"R": 100, "T": 40},
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [1], "signals": [self.interv_sig]},
+            initial_condition=np.array([
+                [1., 1.0, 1.0],
+                [1., 1.0, 1.0]
+            ]),
+            start_time=0,
+            timestep=0.05,
+            rng = np.random.default_rng(SEED)     
+        )
+
+    @interfere.utils.copy_doc(DataGenerator.generate_data)
+    def generate_data(
+        self, num_train_obs = 100,
+        num_forecast_obs = 50,
+        num_burn_in_states = 0
+    ):
+        # Stepsize must be small or forward Euler diverges.
+        if self.timestep > 0.002:
+            # Simulate with smaller timestep and downsample.
+            new_timestep = 0.0005
+            return self.generate_data_and_downsample(
+                new_timestep,
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+        
+        else:
+            return super().generate_data(
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+
+
+class MooreSpiegel3(DataGenerator):
+
+    target_idx = 2
+    max_timestep = 0.002
+    interv_sig = lambda self, t: 0.05
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.MooreSpiegel,
+            model_params={"R": 100, "T": 150},
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [1], "signals": [self.interv_sig]},
+            initial_condition=np.array([
+                [1., 0.0, 1.0],
+                [1., 0.0, 1.0]
+            ]),
+            start_time=0,
+            timestep=0.05,
+            rng = np.random.default_rng(SEED)     
+        )
+
+    @interfere.utils.copy_doc(DataGenerator.generate_data)
+    def generate_data(
+        self, num_train_obs = 100,
+        num_forecast_obs = 50,
+        num_burn_in_states = 0
+    ):
+        # Stepsize must be small or forward Euler diverges.
+        if self.timestep > 0.002:
+            # Simulate with smaller timestep and downsample.
+            new_timestep = 0.0005
+            return self.generate_data_and_downsample(
+                new_timestep,
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+        
+        else:
+            return super().generate_data(
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+
+
+class MutualisticPop3(DataGenerator):
+
+    target_idx = 2
+
+    interv_sig = lambda self, t: 400.0
+    exog = randsig(
+        max_T=1000, amax=300, amin=100,
+        fmax=400, fmin=100, rng=np.random.default_rng(101)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.MutualisticPopulation,
+            model_params={
+                "alpha": np.array([0.12767238, 0.07658851, 0.17537087, 0.11031559, 0.22521503]),
+                "theta": np.array([0.09350395, 0.08481134, 0.12844143, 0.1608109 , 0.11711182]),
+                "adjacency_matrix": 10 * np.array([
+        [0.73083525, 0.44589813, 0.01742865, 0.97795166, 0.06784397],
+        [0.20935416, 0.67354246, 0.781504  , 0.38530501, 0.10222777],
+        [0.32651044, 0.99212054, 0.55599965, 0.7893739 , 0.95372582],
+        [0.11922454, 0.82836123, 0.56638243, 0.1140988 , 0.01417985],
+        [0.03972748, 0.7415288 , 0.791318  , 0.36524593, 0.07920304]
+                ]),
+                "h": 3.0
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [1], "signals": [self.exog]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 1], "signals": [
+                    self.interv_sig, self.exog]},
+            initial_condition=np.array([
+                [0.82302224, 0.09089006, 0.68957824, 0.53722689, 0.99534445],
+                [0.94453027, 0.06492306, 0.76213131, 0.48935338, 0.15360667]
+            ]),
+            start_time=0,
+            timestep=0.001,
+            rng = np.random.default_rng(SEED)        
+        )
+
+class MutualisticPop1(DataGenerator):
+
+    target_idx = 3
+
+    interv_sig = lambda self, t: 65.0
+    exog = randsig(
+        max_T=1000, amax=70, amin=50,
+        fmax=200, fmin=20, rng=np.random.default_rng(101)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.MutualisticPopulation,
+            model_params={
+                "alpha": np.array([0.12767238, 0.07658851, 0.17537087, 0.11031559, 0.22521503]),
+                "theta": np.array([0.09350395, 0.08481134, 0.12844143, 0.1608109 , 0.11711182]),
+                "adjacency_matrix": 5 * np.array([
+                    [0.0, 1.0, -1.0, 0.0, 1.0],
+                    [0.0, 0.0, 0.0, 1.0, 0.0],
+                    [-1.0, 1.0, 0.0, 0.0, 1.0],
+                    [1.0, 1.0, 1.0, 0.0, -1.0],
+                    [1.0, 0.0, 1.0, -1.0, 0.0],
+                ]),
+                "h": 11
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [1], "signals": [self.exog]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [4, 1], "signals": [
+                    self.interv_sig, self.exog]},
+            initial_condition=np.array([
+                [0.82302224, 0.09089006, 0.68957824, 0.53722689, 0.99534445],
+                [0.94453027, 0.06492306, 0.76213131, 0.48935338, 0.15360667]
+            ]),
+            start_time=0,
+            timestep=0.001,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
+class MutualisticPop2(DataGenerator):
+
+    target_idx = 4
+
+    interv_sig = lambda self, t: 65.0
+    exog = randsig(
+        max_T=1000, amax=70, amin=50,
+        fmax=200, fmin=20, rng=np.random.default_rng(101)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.MutualisticPopulation,
+            model_params={
+                "alpha": np.array([0.12767238, 0.07658851, 0.17537087, 0.11031559, 0.22521503]),
+                "theta": np.array([0.09350395, 0.08481134, 0.12844143, 0.1608109 , 0.11711182]),
+                "adjacency_matrix": 5 * np.array([
+                    [0.0, 1.7, -1.0, 0.0, 1.0],
+                    [-1.0, 1.0, 0.0, 0.9, 1.0],
+                    [1.0, 1.0, 1.0, 0.0, -1.0],
+                    [1.6, 0.0, 1.0, -1.0, 0.0],
+                    [0.0, 10.0, 0.0, 1.0, 0.0],
+
+                ]),
+                "h": 11
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [1], "signals": [self.exog]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 1], "signals": [
+                    self.interv_sig, self.exog]},
+            initial_condition=np.array([
+                [0.82302224, 0.09089006, 0.68957824, 0.53722689, 0.99534445],
+                [0.94453027, 0.06492306, 0.76213131, 0.48935338, 0.15360667]
+            ]),
+            start_time=0,
+            timestep=0.001,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
 class OrnsteinUhlenbeck1(DataGenerator):
 
     target_idx = 3
@@ -1489,6 +2280,231 @@ class OrnsteinUhlenbeck3(DataGenerator):
             start_time=0,
             timestep=0.025,
             rng = np.random.default_rng(SEED)
+        )
+
+
+class PlantedTank1(DataGenerator):
+
+    target_idx = 3
+
+    interv_sig = lambda self, t: 2.0
+    exog = randsig(
+            max_T=24 * 3600 * 7000, amax=3, amin=2,
+            fmax=1/2000, fmin=1/10000, rng=np.random.default_rng(117)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.PlantedTankNitrogenCycle,
+            model_params={"sigma": 0.0},
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [2], "signals": [self.exog]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [1, 2], "signals": [
+                    self.interv_sig, self.exog]},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669, 0.96602119],
+                [0.8102566 ,  0.10224813, -0.35046573, 0.318422]
+            ]),
+            start_time=0,
+            timestep=60*60*24,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
+class PlantedTank2(DataGenerator):
+
+    target_idx = 3
+
+    interv_sig = lambda self, t: 2.5
+    exog = randsig(
+        max_T=24 * 3600 * 7000, amax=3, amin=2,
+        fmax=1/20000, fmin=1/100000, rng=np.random.default_rng(101)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.PlantedTankNitrogenCycle,
+            model_params={"sigma": 0.0},
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [1], "signals": [self.exog]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 1], "signals": [
+                    self.interv_sig, self.exog]},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669, 0.96602119],
+                [0.8102566 ,  0.10224813, -0.35046573, 0.318422]
+            ]),
+            start_time=0,
+            timestep=60*60*24, # 1 Day in seconds.
+            rng = np.random.default_rng(SEED)        
+        )
+
+
+class PlantedTank3(DataGenerator):
+
+    target_idx = 2
+
+    interv_sig = lambda self, t: 1.0
+    exog = randsig(
+            max_T=24 * 3600 * 7000, amax=3, amin=2,
+            fmax=1/20000, fmin=1/100000, rng=np.random.default_rng(107)
+    )
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.PlantedTankNitrogenCycle,
+            model_params={
+                "nitrate_bact_eff_gamma2": 0.00000003
+            },
+            obs_intervention_type=interfere.SignalIntervention,
+            obs_intervention_params={
+                "intervened_idxs": [1], "signals": [self.exog]
+            },
+            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_params={
+                "intervened_idxs": [0, 1], "signals": [
+                    self.interv_sig, self.exog]},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669, 0.96602119],
+                [0.8102566 ,  0.10224813, -0.35046573, 0.318422]
+            ]),
+            start_time=0,
+            timestep=60*60*24,
+            rng = np.random.default_rng(SEED)  
+        )
+
+
+class Rossler1(DataGenerator):
+
+    target_idx=1
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.Rossler,
+            model_params={},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 4.0},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669],
+                [0.0 ,  0.10224813, -0.35046573]
+            ]),
+            start_time=0,
+            timestep=0.05,
+            rng = np.random.default_rng(SEED)        
+        )
+
+    @interfere.utils.copy_doc(DataGenerator.generate_data)
+    def generate_data(
+        self, num_train_obs = 100,
+        num_forecast_obs = 50,
+        num_burn_in_states = 0
+    ):
+        # Stepsize must be small or forward Euler diverges.
+        if self.timestep > 0.002:
+            # Simulate with smaller timestep and downsample.
+            new_timestep = 0.001
+            return self.generate_data_and_downsample(
+                new_timestep,
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+        
+        else:
+            return super().generate_data(
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+            )
+
+
+class Rossler2(DataGenerator):
+
+    target_idx=1
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.Rossler,
+            model_params={"b": 0.5},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 2, "constants": 10.0},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669],
+                [0.8102566 ,  0.10224813, -0.35046573]
+            ]),
+            start_time=0,
+            timestep=0.05,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
+    @interfere.utils.copy_doc(DataGenerator.generate_data)
+    def generate_data(
+        self, num_train_obs = 100,
+        num_forecast_obs = 50,
+        num_burn_in_states = 0
+    ):
+        # Stepsize must be small or forward Euler diverges.
+        if self.timestep > 0.002:
+            # Simulate with smaller timestep and downsample.
+            new_timestep = 0.001
+            return self.generate_data_and_downsample(
+                new_timestep,
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+            )
+        
+        else:
+            return super().generate_data(
+                num_train_obs=num_train_obs,
+                num_forecast_obs=num_forecast_obs,
+            )
+
+
+class Thomas1(DataGenerator):
+
+    target_idx=1
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.Thomas,
+            model_params={},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 0, "constants": 3.0},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669],
+                [0.8102566 ,  0.10224813, -0.35046573]
+            ]),
+            start_time=0,
+            timestep=0.1,
+            rng = np.random.default_rng(SEED)        
+        )
+
+
+class Thomas2(DataGenerator):
+
+    target_idx=2
+
+    def __init__(self):
+        super().__init__(
+            model_type=interfere.dynamics.Thomas,
+            model_params={},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params={"intervened_idxs": 1, "constants": 3.0},
+            initial_condition=np.array([
+                [0.66158597, 0.8012904 , 0.19920669],
+                [0.8102566 ,  0.10224813, -0.35046573]
+            ]),
+            start_time=0,
+            timestep=0.1,
+            rng = np.random.default_rng(SEED)        
         )
 
 
@@ -2221,228 +3237,6 @@ class VARMA3LotkaVoltera(DataGenerator):
         )
 
 
-class LotkaVolteraConfound(DataGenerator):
-
-    target_idx = 1
-
-    # Intervention signals
-    interv_sig = lambda self, t: 7.0
-    exog1 = randsig(
-        max_T=300, amax=6, amin=3,
-        fmax=3, rng=np.random.default_rng(11)
-    )
-    exog2 = randsig(
-        max_T=300, amax=6, amin=3,
-        fmax=3, rng=np.random.default_rng(14)
-    )
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.LotkaVolteraSDE,
-            model_params={
-                "growth_rates": np.array([ 8.89666155,  9.27497536,  9.21819474, 10.26697586,  9.75141927]),
-                "capacities": np.array([11.35919604, 16.8903648 , 18.41747724, 14.25508997, 19.56926003]),
-                "interaction_mat": 0.5 * np.array([
-                    [0.0, 0.0, 0.0, 1.0, 1.0],
-                    [1.0, 0.0, 0.0, 1.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 1.0, 0.0, 0.0],
-                ]),
-                "sigma": 0.0
-            },
-            obs_intervention_type=interfere.SignalIntervention,
-            obs_intervention_params={
-                "intervened_idxs": [2, 3],
-                "signals": [self.exog1, self.exog2]
-            },
-            do_intervention_type=interfere.SignalIntervention,
-            do_intervention_params={
-                "intervened_idxs": [0, 2, 3],
-                "signals": [self.interv_sig, self.exog1, self.exog2]
-            },
-            initial_condition=np.array([[8.25332906, 3.38215312, 5.75760548, 7.53301865, 8.27103937]]),
-            timestep=0.02,
-        )
-
-
-class LotkaVolteraMediator(DataGenerator):
-
-    target_idx = 1
-
-
-    # Intervention signals
-    interv_sig = lambda self, t: 10
-    exog1 = randsig(
-        max_T=300, amax=6, amin=3,
-        fmax=3, rng=np.random.default_rng(13)
-    )
-    exog2 = randsig(
-        max_T=300, amax=6, amin=3,
-        fmax=3, rng=np.random.default_rng(15)
-    )
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.LotkaVolteraSDE,
-            model_params={
-                "growth_rates": np.array([8.2617336 , 8.66335721, 8.63889329, 9.64838287, 7.68741842]),
-                "capacities": np.array([13.91084807, 14.37881873, 13.72748903, 11.06953596, 14.78965454]),
-                "interaction_mat": 0.5 * np.array([
-                    [0.0, 0.0, 0.0, 0.0, 1.0],
-                    [0.0, 0.0, 0.0, 1.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0],
-                    [1.0, 0.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0],
-                ]),
-                "sigma": 0.0
-            },
-            obs_intervention_type=interfere.SignalIntervention,
-            obs_intervention_params={
-                "intervened_idxs": [2, 4],
-                "signals": [self.exog1, self.exog2]
-            },
-            do_intervention_type=interfere.SignalIntervention,
-            do_intervention_params={
-                "intervened_idxs": [0, 2, 4],
-                "signals": [self.interv_sig, self.exog1, self.exog2]
-            },
-            initial_condition=np.array([[2.41352145, 2.57145249, 1.84731557, 1.93864549, 8.1382767 ]]),
-            timestep=0.02,
-        )
-
-
-class LotkaVolteraBlockableConfound(DataGenerator):
-
-    target_idx = 1
-
-
-    # Intervention signals
-    interv_sig = lambda self, t: 10
-    exog1 = randsig(
-        max_T=300, amax=6, amin=3,
-        fmax=3, rng=np.random.default_rng(14)
-    )
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.LotkaVoltera,
-            model_params={
-                "growth_rates": np.array([11.10334803,  8.72021588, 10.64815245,  8.80041956, 11.0718007 ]),
-                "capacities": np.array([11.03562434, 12.89089837, 16.61571739, 17.01295764, 14.38680003]),
-                "interaction_mat": 0.5 *  np.array([
-                    [0.0, 0.0, 1.0, 0.0, 0.0],
-                    [1.0, 0.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 1.0],
-                    [0.0, 0.0, 1.0, 1.0, 0.0],
-                ])
-            },
-            obs_intervention_type=interfere.SignalIntervention,
-            obs_intervention_params={
-                "intervened_idxs": [2],
-                "signals": [self.exog1]
-            },
-            do_intervention_type=interfere.SignalIntervention,
-            do_intervention_params={
-                "intervened_idxs": [0, 2],
-                "signals": [self.interv_sig, self.exog1]
-            },
-            initial_condition=np.array([[4.81406604, 7.39983144, 4.38964096, 9.59872839, 3.09459043]]),
-            timestep=0.02,
-        )
-
-
-# Coupled Map Lattice Data Generators
-class CoupledLogisticMapConfound(DataGenerator):
-
-    target_idx = 1
-
-    # Intervention signals
-    interv_sig = lambda self, t: 0.4
-    exog1 = randsig(
-        max_T=11_000, amax=0.6, amin=0.4,
-        fmax=3, fmin=0.2, rng=np.random.default_rng(11) 
-    )
-    exog2 = randsig(
-        max_T=11_000, amax=0.6, amin=0.4,
-        fmax=3, fmin=0.2, rng=np.random.default_rng(14)
-    )
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.coupled_logistic_map,
-            model_params={
-                "logistic_param": 3.72,
-                "eps": 0.5,
-                "adjacency_matrix": 0.5 * np.array([
-                    [1.0, 0.0, 0.0, 1.0, 1.0],
-                    [1.0, 1.0, 0.0, 1.0, 0.0],
-                    [0.0, 0.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 1.0, 0.0],
-                    [0.0, 0.0, 1.0, 0.0, 1.0],
-                ]),
-            },
-            obs_intervention_type=interfere.SignalIntervention,
-            obs_intervention_params={
-                "intervened_idxs": [2, 3],
-                "signals": [self.exog1, self.exog2]
-            },
-            do_intervention_type=interfere.SignalIntervention,
-            do_intervention_params={
-                "intervened_idxs": [0, 2, 3],
-                "signals": [self.interv_sig, self.exog1, self.exog2]
-            },
-            initial_condition=np.array([[0.69274337, 0.81581711, 0.34440676, 0.04483818, 0.57159726]]),
-            timestep=1.0,
-        )
-
-
-class CoupledLogisticMapBlockableConfound(DataGenerator):
-
-    target_idx = 1
-
-
-    # Intervention signals
-    interv_sig = lambda self, t: 0.4
-    exog1 = randsig(
-        max_T=11_000, amax=0.6, amin=0.4,
-        fmax=3, fmin=0.2, rng=np.random.default_rng(11)
-    )
-    exog2 = randsig(
-        max_T=11_000, amax=0.6, amin=0.4,
-        fmax=3, fmin=0.2, rng=np.random.default_rng(14)
-    )
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.coupled_logistic_map,
-            model_params={
-                "logistic_param": 3.72,
-                "eps": 0.5,
-                "adjacency_matrix": 0.5 *  np.array([
-                    [1.0, 0.0, 1.0, 0.0, 0.0],
-                    [1.0, 1.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 1.0, 1.0],
-                    [0.0, 0.0, 1.0, 1.0, 0.0],
-                ]),
-            },
-            obs_intervention_type=interfere.SignalIntervention,
-            obs_intervention_params={
-                "intervened_idxs": [2],
-                "signals": [self.exog1]
-            },
-            do_intervention_type=interfere.SignalIntervention,
-            do_intervention_params={
-                "intervened_idxs": [0, 2],
-                "signals": [self.interv_sig, self.exog1]
-            },
-            initial_condition=np.array([[0.31268323, 0.22431822, 0.18200973, 0.86017865, 0.85754249]]),
-            timestep=1.0,
-        )
-
-
 # Wilson Cowan Data Generators.
 WC_MAX_NUM_STEPS = 11_000
 WC_TIMESTEP = 0.02
@@ -2536,125 +3330,6 @@ class WilsonCowanDownstream(DataGenerator):
         )
 
 
-class Lorenz1(DataGenerator):
-
-    target_idx = 1
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.Lorenz,
-            model_params={},
-            do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": 15.0},
-            initial_condition=np.array([
-                [0.66158597, 0.8012904 , 0.19920669],
-                [0.8102566 ,  0.10224813, -0.35046573]
-            ]),
-            start_time=0,
-            timestep=0.02,
-            rng = np.random.default_rng(SEED)        
-        )
-
-class Lorenz2(DataGenerator):
-
-    target_idx = 0
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.Lorenz,
-            model_params={"beta": 3, "rho": 32, "s": 12},
-            do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 1, "constants": -10.0},
-            initial_condition=np.array([
-                [0.66158597, 0.8012904 , 0.19920669],
-                [0.8102566 ,  0.10224813, -0.35046573]
-            ]),
-            start_time=0,
-            timestep=0.02,
-            rng = np.random.default_rng(SEED)        
-        )
-
-
-class Rossler1(DataGenerator):
-
-    target_idx=1
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.Rossler,
-            model_params={},
-            do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": 4.0},
-            initial_condition=np.array([
-                [0.66158597, 0.8012904 , 0.19920669],
-                [0.8102566 ,  0.10224813, -0.35046573]
-            ]),
-            start_time=0,
-            timestep=0.05,
-            rng = np.random.default_rng(SEED)        
-        )
-
-
-class Rossler2(DataGenerator):
-
-    target_idx=1
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.Rossler,
-            model_params={"b": 0.5},
-            do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 2, "constants": 10.0},
-            initial_condition=np.array([
-                [0.66158597, 0.8012904 , 0.19920669],
-                [0.8102566 ,  0.10224813, -0.35046573]
-            ]),
-            start_time=0,
-            timestep=0.05,
-            rng = np.random.default_rng(SEED)        
-        )
-
-
-class Thomas1(DataGenerator):
-
-    target_idx=1
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.Thomas,
-            model_params={},
-            do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": 3.0},
-            initial_condition=np.array([
-                [0.66158597, 0.8012904 , 0.19920669],
-                [0.8102566 ,  0.10224813, -0.35046573]
-            ]),
-            start_time=0,
-            timestep=0.1,
-            rng = np.random.default_rng(SEED)        
-        )
-
-
-class Thomas2(DataGenerator):
-
-    target_idx=2
-
-    def __init__(self):
-        super().__init__(
-            model_type=interfere.dynamics.Thomas,
-            model_params={},
-            do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 1, "constants": 3.0},
-            initial_condition=np.array([
-                [0.66158597, 0.8012904 , 0.19920669],
-                [0.8102566 ,  0.10224813, -0.35046573]
-            ]),
-            start_time=0,
-            timestep=0.1,
-            rng = np.random.default_rng(SEED)        
-        )
-
-
 ALL_MODELS = [
     ArithmeticBrownianMotion,
     AttractingFixedPoint4D,
@@ -2692,9 +3367,21 @@ ALL_MODELS = [
     LotkaVoltera2,
     LotkaVoltera3,
     LotkaVoltera4,
+    MichaelisMenten1,
+    MichaelisMenten2,
+    MichaelisMenten3,
+    MooreSpiegel1,
+    MooreSpiegel2,
+    MooreSpiegel3,
+    MutualisticPop1,
+    MutualisticPop1,
+    MutualisticPop1,
     OrnsteinUhlenbeck1,
     OrnsteinUhlenbeck2,
     OrnsteinUhlenbeck3,
+    PlantedTank1,
+    PlantedTank2,
+    PlantedTank3,
     VARMA1SpatiotempChaos,
     VARMA2ChaoticBrownian,
     VARMA3LotkaVoltera, 
