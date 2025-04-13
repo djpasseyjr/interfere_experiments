@@ -18,6 +18,9 @@ import PIL
 
 DEFAULT_RNG = np.random.default_rng()
 
+# Small irrational tolerance to prevent occational problems with np.arange.
+ARANGE_TOL = np.pi * 1e-11
+
 
 @dataclass
 class ControlVsRespData:
@@ -344,7 +347,7 @@ def generate_data(
 
     forecast_t = np.arange(
         train_t[-1],
-        train_t[-1] + num_forecast_obs * timestep, 
+        train_t[-1] + num_forecast_obs * timestep - ARANGE_TOL, 
         timestep
     )
 

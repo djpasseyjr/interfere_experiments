@@ -13,26 +13,38 @@ def test_generate(
     dg = data_gen_type()
     data = dg.generate_data(50, 50)
     assert data.train_states.shape == (50, dg.initial_condition.shape[1]), (
-        "Incorrect train shape generated for {model}"
+        f"Incorrect train shape generated for {type(dg).__name__} ."
+        f"\n\tExpected: {(50, dg.initial_condition.shape[1])} "
+        f"\n\tActual: {data.train_states.shape}"
     )
     assert data.forecast_states.shape == (
         50, dg.initial_condition.shape[1]), (
-            "Incorrect forecast shape generated for {model}"
+            f"Incorrect forecast shape generated for {type(dg).__name__}"
+            f"\n\tExpected: {(50, dg.initial_condition.shape[1])} "
+            f"\n\tActual: {data.forecast_states.shape}"
     )
     assert data.interv_states.shape == (50, dg.initial_condition.shape[1]), (
-        "Incorrect forecast shape generated for {model}"
+        f"Incorrect interv shape generated for {type(dg).__name__}"
+            f"\n\tExpected: {(50, dg.initial_condition.shape[1])} "
+            f"\n\tActual: {data.interv_states.shape}"
     )
 
     data = dg.generate_data(50, 50, num_burn_in_states=25)
     assert data.train_states.shape == (50, dg.initial_condition.shape[1]), (
-        "Incorrect train shape generated for {model} with burn in."
+        f"Incorrect train shape generated for {type(dg).__name__} with burn in."
+            f"\n\tExpected: {(50, dg.initial_condition.shape[1])} "
+            f"\n\tActual: {data.train_states.shape}"
     )
     assert data.forecast_states.shape == (
         50, dg.initial_condition.shape[1]), (
-            "Incorrect forecast shape generated for {model} with burn in."
+            f"Incorrect forecast shape generated for {type(dg).__name__} with burn in."
+            f"\n\tExpected: {(50, dg.initial_condition.shape[1])} "
+            f"\n\tActual: {data.forecast_states.shape}"
     )
     assert data.interv_states.shape == (50, dg.initial_condition.shape[1]), (
-        "Incorrect forecast shape generated for {model} with burn in."
+        f"Incorrect interv shape generated for {type(dg).__name__} with burn in."
+            f"\n\tExpected: {(50, dg.initial_condition.shape[1])} "
+            f"\n\tActual: {data.interv_states.shape}"
     )
 
 
@@ -126,3 +138,4 @@ def test_generate_data_and_downsample(
             data1.forecast_states, data2.forecast_states, atol=0.1, rtol=0)
         assert np.allclose(
             data1.interv_states, data2.interv_states, atol=0.1, rtol=0)
+        
