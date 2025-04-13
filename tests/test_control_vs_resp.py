@@ -274,11 +274,14 @@ class TestDataGen:
 
 def test_generate_data_raises_for_bad_intervention():
     args = GEN_DATA_ARGS[0]
+    old_do_interv = args["do_intervention"]
     args["do_intervention"] = interfere.SignalIntervention(
         [0], [lambda t: 1/0])
     
     with pytest.raises(ValueError, match="ZeroDivisionError"):
         ie.control_vs_resp.generate_data(**args)
+
+    args["do_intervention"] = old_do_interv
 
     args = GEN_DATA_ARGS[0]
     args["obs_intervention"] = interfere.SignalIntervention(
@@ -286,6 +289,8 @@ def test_generate_data_raises_for_bad_intervention():
     
     with pytest.raises(ValueError, match="ZeroDivisionError"):
         ie.control_vs_resp.generate_data(**args)
+
+    args["obs_intervention"] = interfere.interventions.IdentityIntervention()
 
 
 @pytest.mark.parametrize("gen_data_args", GEN_DATA_ARGS)
@@ -661,7 +666,7 @@ def test_optuna_obj_storage():
 
     objective(mock_trial)
 
-    assert objective.trial_error_log[idx] is "", (
+    assert objective.trial_error_log[idx] == "", (
         "Error log not empty."
         f"\nLog: \n\nobjective.trial_error_log[idx]"
         f" = {objective.trial_error_log[idx]}"
@@ -697,7 +702,7 @@ def test_optuna_obj_no_figures():
 
     objective(mock_trial)
 
-    assert objective.trial_error_log[idx] is "", (
+    assert objective.trial_error_log[idx] == "", (
         "Error log not empty."
         f"\nLog: \n\nobjective.trial_error_log[idx]"
         f" = {objective.trial_error_log[idx]}"
@@ -725,15 +730,16 @@ def test_optuna_obj_pred_storing():
 
     objective(mock_trial)
 
-    assert objective.trial_error_log[idx] is "", (
+    assert objective.trial_error_log[idx] == "", (
         "Error log not empty."
         f"\nLog: \n\nobjective.trial_error_log[idx]"
         f" = {objective.trial_error_log[idx]}"
     )
 
-    assert objective.trial_preds.get(idx, "") is "", (
+    assert objective.trial_preds.get(idx, "") == "", (
         "Prediction dictionary should be empty. \nGot:"
         f"{objective.trial_preds[idx]}"
     )
 
-test_predict_array_shapes(CTRL_V_RESP_DATA[1], METHODS[0])
+
+test_optuna_obj_pred_storing()
