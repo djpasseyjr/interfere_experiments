@@ -142,6 +142,10 @@ def test_cvr_data_to_json(cvr_data: ie.control_vs_resp.ControlVsRespData):
 
     # Check that arrays  match.
     assert np.all(np.array(
+        loaded_json["initial_condition_states"]) == cvr_data.train_prior_states)
+    assert np.all(np.array(
+        loaded_json["initial_condition_times"]) == cvr_data.train_prior_t)
+    assert np.all(np.array(
         loaded_json["train_states"]) == cvr_data.train_states)
     assert np.all(np.array(
         loaded_json["train_times"]) == cvr_data.train_t)
@@ -165,6 +169,30 @@ def test_cvr_data_to_json(cvr_data: ie.control_vs_resp.ControlVsRespData):
         np.array(loaded_json["causal_resp_exog_idxs"]) == np.array(cvr_data.do_intervention.intervened_idxs)
     )
 
+    # Check that intervention is correct.
+    obs_eval = cvr_data.obs_intervention.eval_at_times(cvr_data.train_t)
+    do_eval = cvr_data.do_intervention.eval_at_times(cvr_data.forecast_t)
+
+    if obs_eval is not None:
+        loaded_obs_interv = np.array(loaded_json[
+            "train_states"])[:, loaded_json["train_exog_idxs"]]
+        
+        assert np.allclose(obs_eval, loaded_obs_interv, atol=0.1, rtol=0), (
+            "Error in obs_intervention"
+            f"\n\t Expected: {obs_eval}"
+            f"\n\t Observed: {loaded_obs_interv}"
+        )
+
+    if do_eval is not None:
+        loaded_do_interv = np.array(loaded_json[
+            "causal_resp_states"])[:, loaded_json["causal_resp_exog_idxs"]]
+        
+        assert np.allclose(do_eval, loaded_do_interv, atol=0.1, rtol=0), (
+            "Error in do intervention"
+            f"\n\t Expected: {do_eval}"
+            f"\n\t Observed: {loaded_do_interv}"
+        )
+
     # Check that each variable has a description.
     var_names = [var["name"] for var in loaded_json["metadata"]["variables"]]
     var_desrc_sym_diff = set(
@@ -175,6 +203,9 @@ def test_cvr_data_to_json(cvr_data: ie.control_vs_resp.ControlVsRespData):
         f"Missing or extra variable description: {var_desrc_sym_diff} "
     )
     assert(loaded_json["model_description"] == "Descr")
+
+    autoloaded_cvr_data = ie.control_vs_resp.load_cvr_json(temp.name)
+    assert autoloaded_cvr_data == cvr_data
 
 
 @pytest.mark.parametrize(
@@ -740,6 +771,3 @@ def test_optuna_obj_pred_storing():
         "Prediction dictionary should be empty. \nGot:"
         f"{objective.trial_preds[idx]}"
     )
-
-
-test_optuna_obj_pred_storing()

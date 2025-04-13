@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from optuna.trial import Trial
 import PIL
+from scipy.interpolate import interp1d
+
 
 DEFAULT_RNG = np.random.default_rng()
 
@@ -172,8 +174,22 @@ class ControlVsRespData:
         equal = equal and np.all(self.forecast_t == other.forecast_t)
         equal = equal and np.all(self.forecast_states == other.forecast_states)
         equal = equal and np.all(self.interv_states == other.interv_states)
-        equal = equal and (self.obs_intervention == other.obs_intervention)
-        equal = equal and (self.do_intervention == other.do_intervention)
+
+
+        # Assert that interventions match at the observed times.
+        
+        obs_eval = self.obs_intervention.eval_at_times(self.train_t)
+        do_eval = self.do_intervention.eval_at_times(self.forecast_t)
+
+        oth_obs_eval = other.obs_intervention.eval_at_times(other.train_t)
+        oth_do_eval = other.do_intervention.eval_at_times(other.forecast_t)  
+        
+        if obs_eval is not None:
+            equal = equal and np.allclose(
+                obs_eval, oth_obs_eval, atol=0.1, rtol=0)
+        if do_eval is not None:
+            equal = equal and np.allclose(
+                do_eval, oth_do_eval, atol=0.1, rtol=0)
 
         return equal
     
@@ -189,6 +205,16 @@ class ControlVsRespData:
                         "name": "model_description",
                         "type": "str",
                         "description": "A string of text describing the dynamic model that underlies the data generating process. May include equations, references, parameter values and parameter descriptions."
+                    },
+                    {
+                        "name": "initial_condition_states", 
+                        "type": "List[List[float]]", 
+                        "description": "An mxn list of lists. Rows are observations, columns are variables. Initial condition data that occurs directly prior to train_states."
+                    },
+                    {
+                        "name": "initial_condition_times", 
+                        "type": "List[float]",
+                        "description": "A list with length m. Contains the times corresponding to each observation in (row of) initial_condition_states."
                     },
                     {
                         "name": "train_states", 
@@ -250,6 +276,8 @@ class ControlVsRespData:
         cvr_dict = {
             "metadata": self.json_metadata(),
             "model_description": model_description,
+            "initial_condition_states": self.train_prior_states.tolist(),
+            "initial_condition_times": self.train_prior_t.tolist(),
             "train_states": self.train_states.tolist(),
             "train_times": self.train_t.tolist(),
             "train_exog_idxs": self.obs_intervention.intervened_idxs,
@@ -377,6 +405,64 @@ def generate_data(
         do_intervention,
         interv_states
     )
+
+
+def load_cvr_json(path: str) -> ControlVsRespData:
+    """Load CVR data from a JSON file.
+
+    Args:
+        json_path (str): Path to the JSON file.
+
+    Returns:
+        ie.control_vs_resp.ControlVsRespData: CVR data.
+    """
+
+    with open(path, "r") as f:
+        data = json.load(f)
+
+    # Load states and times.
+    train_prior_t = np.array(data["initial_condition_times"])
+    train_t = np.array(data["train_times"])
+    forecast_t = np.array(data["forecast_times"])
+
+    train_prior_states = np.array(data["initial_condition_states"])
+    train_states = np.array(data["train_states"])
+    forecast_states = np.array(data["forecast_states"])
+    resp_states = np.array(data["causal_resp_states"])
+
+    # Create SignalIntervention args from the exogenous states.
+    train_exog_sigs = [
+        interp1d(train_t, train_states[:, idx])
+        for idx in data['train_exog_idxs']
+    ]
+
+    do_exog_states = [
+        interp1d(forecast_t, resp_states[:, idx])
+        for idx in data['causal_resp_exog_idxs']
+    ]
+
+    # Initialize ControlVsRespData class.
+    cvr = ControlVsRespData(
+        train_prior_t=train_prior_t,
+        train_prior_states=train_prior_states,
+        obs_intervention=interfere.SignalIntervention(
+            data["train_exog_idxs"],
+            train_exog_sigs
+        ),
+        train_t=train_t,
+        train_states=train_states,
+        forecast_t=forecast_t,
+        forecast_states=forecast_states,
+        do_intervention=interfere.SignalIntervention(
+            data["causal_resp_exog_idxs"],
+            do_exog_states
+        ),
+        interv_states=resp_states
+    )
+
+    cvr.target_idx = data.get("target_idx", None)
+    
+    return cvr
 
 
 def make_predictions(
