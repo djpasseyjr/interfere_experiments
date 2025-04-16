@@ -1061,9 +1061,9 @@ class ImaginaryRoots4D(DataGenerator):
 
 class KuramotoOscilator1(DataGenerator):
 
-    target_idx = 8
+    target_idx = 9
 
-    interv_sig = lambda self, t: 0.4
+    interv_sig = lambda self, t: -0.37437745320381755
     exog = randsig(
         max_T=11_000, amax=0.3, amin=-0.3,
         fmax=2, fmin=0.2, rng=np.random.default_rng(11)
@@ -1099,7 +1099,7 @@ class KuramotoOscilator1(DataGenerator):
             },
             do_intervention_type=interfere.SignalIntervention,
             do_intervention_params={
-                "intervened_idxs": [0, 2],
+                "intervened_idxs": [8, 2],
                 "signals": [self.interv_sig, self.exog]
             },
             initial_condition=np.array([
@@ -1116,7 +1116,7 @@ class KuramotoOscilator1(DataGenerator):
 
 class KuramotoOscilator2(DataGenerator):
 
-    target_idx = 5
+    target_idx = 8
 
     def __init__(self):
         super().__init__(
@@ -1144,7 +1144,7 @@ class KuramotoOscilator2(DataGenerator):
             },
             do_intervention_type=interfere.PerfectIntervention,
             do_intervention_params={
-                "intervened_idxs": 7, "constants": -0.4528152696777106},
+                "intervened_idxs": 7, "constants": 0.4172860701358523},
             initial_condition=np.array([
                 [0.21688613, -0.52486516,  0.62411263, -0.2703094 , -0.82369351,
             -0.69257434, -0.25823711,  0.66971335, -0.54667034,  0.56496237],
@@ -1952,7 +1952,7 @@ class MooreSpiegel1(DataGenerator):
 
 class MooreSpiegel2(DataGenerator):
 
-    target_idx = 2
+    target_idx = 1
     max_timestep = 0.002
 
     def __init__(self):
