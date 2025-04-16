@@ -65,18 +65,19 @@ NUM_TRAIN_OBS_LIST = [100, 200, 500, 1000, 2000, 3000, 4000, 5000]
 RAISE_EXCEPTIONS = True
 
 data_name = os.path.basename(DATA_FILE).split(".")[0]
-cvr_data = ie.control_vs_resp.load_cvr_json(DATA_FILE)
+STOCH_DATA = ie.control_vs_resp.load_cvr_json(DATA_FILE)
 
 f = Path(DATA_FILE)
 stoch_level = f.parent
 
 deterministic_data_file = f.parent.with_name("Deterministic") / f.name
 
-target_cvr_data = ie.control_vs_resp.load_cvr_json(deterministic_data_file)
+DETERM_DATA = ie.control_vs_resp.load_cvr_json(deterministic_data_file)
+TARGET_IDX = DETERM_DATA.target_idx
 
-TARGET_IDX = target_cvr_data.target_idx
 assert isinstance(TARGET_IDX, int), (
     f"TARGET_IDX is not an integer: TARGET_IDX = {TARGET_IDX}")
+
 
 score_file = SAVE_DIR + data_name + f"_scores[{str(METHOD_GROUP)}].pkl"
 pred_file = SAVE_DIR + data_name + f"_preds[{str(METHOD_GROUP)}].pkl"
@@ -107,8 +108,8 @@ try:
             start_time = datetime.now()
 
             # Take the train data prior to the forecast.
-            train_states = cvr_data.train_states[-num_train_obs:]
-            train_times = cvr_data.train_t[-num_train_obs:]
+            stoch_train_states = STOCH_DATA.train_states[-num_train_obs:]
+            stoch_train_times = STOCH_DATA.train_t[-num_train_obs:]
 
             # Build a cross validation objective to optimize.
             objv = interfere.cross_validation.CrossValObjective(
@@ -122,7 +123,7 @@ try:
                 metric=RMSE,
                 store_preds=True,
                 raise_errors=RAISE_EXCEPTIONS,
-                exog_idxs=cvr_data.do_intervention.intervened_idxs,
+                exog_idxs=STOCH_DATA.do_intervention.intervened_idxs,
             )
 
             study = optuna.create_study(
@@ -134,29 +135,32 @@ try:
             n_trials = OPTUNA_TRIALS_DICT[method_type]
             study.optimize(objv, n_trials=n_trials)
 
-            # Try scoring the best method on hold out test set.
+            # Try scoring the best method on deterministic data.
             try:
                 best_params = study.best_params
 
-                # Forecast.
+                # Fit to STOCHASTIC data.
                 obs_method = method_type(**best_params)
                 obs_method.fit(
-                    train_times, 
-                    *target_cvr_data.obs_intervention.split_exog(train_states)
-                ) 
+                    stoch_train_times, 
+                    *STOCH_DATA.obs_intervention.split_exog(
+                        stoch_train_states)
+                )
+
+                # Forecast the DETERMINISTIC data. 
                 forecast_pred = obs_method.simulate(
-                    target_cvr_data.forecast_t,
-                    prior_states=target_cvr_data.train_states,
-                    prior_t=target_cvr_data.train_t,
-                    intervention=target_cvr_data.obs_intervention,
+                    DETERM_DATA.forecast_t,
+                    prior_states=DETERM_DATA.train_states,
+                    prior_t=DETERM_DATA.train_t,
+                    intervention=DETERM_DATA.obs_intervention,
                 )
 
                 # Forecast error.
                 fcast_error = RMSE(
-                    target_cvr_data.train_states[:, [TARGET_IDX]],
-                    target_cvr_data.forecast_states[:, [TARGET_IDX]],
+                    None,
+                    DETERM_DATA.forecast_states[:, [TARGET_IDX]],
                     forecast_pred[:, [TARGET_IDX]],
-                    []
+                    None,
                 )
 
             except Exception as e:
@@ -174,22 +178,24 @@ try:
 
                 do_method = method_type(**best_params)
                 do_method.fit(
-                    train_times, 
-                    *cvr_data.do_intervention.split_exog(train_states)
+                    stoch_train_times, 
+                    *STOCH_DATA.do_intervention.split_exog(stoch_train_states)
                 )
+
+
                 causal_pred = do_method.simulate(
-                    target_cvr_data.forecast_t,
-                    prior_states=target_cvr_data.train_states,
-                    prior_t=target_cvr_data.train_t,
-                    intervention=target_cvr_data.do_intervention,
+                    DETERM_DATA.forecast_t,
+                    prior_states=DETERM_DATA.train_states,
+                    prior_t=DETERM_DATA.train_t,
+                    intervention=DETERM_DATA.do_intervention,
                 )
 
                 # Causal prediction error.
                 causal_error = RMSE(
-                    target_cvr_data.train_states[:, [TARGET_IDX]],
-                    target_cvr_data.interv_states[:, [TARGET_IDX]],
+                    None,
+                    DETERM_DATA.interv_states[:, [TARGET_IDX]],
                     causal_pred[:, [TARGET_IDX]],
-                    []
+                    None
                 )
 
             except Exception as e:
@@ -241,6 +247,6 @@ except Exception as e:
     print("Experiment ended because of exception.")
     print(type(e).__name__, ": ", e)
     print(traceback.format_exc())
-    
+
     if RAISE_EXCEPTIONS:
         raise e
