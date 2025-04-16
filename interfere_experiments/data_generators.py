@@ -130,6 +130,11 @@ class DataGenerator:
         data.train_prior_t = all_times[
             -(num_prior_obs + num_train_obs) + 1:(-num_train_obs + 1)
         ]
+
+        # Add a target index if one exists.
+        if hasattr(self, "target_idx"):
+            data.target_idx = self.target_idx
+            
         return data
 
 

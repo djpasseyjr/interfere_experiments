@@ -260,6 +260,11 @@ class ControlVsRespData:
                         "name": "causal_resp_exog_idxs", 
                         "type": "List[int]",
                         "description": "The zero based column index that corresponds to the exogenous variables that were manipulated to produce causal_resp_states. Contains all indexes in train_exog_idxs and always includes at least one additional index corresponding to a formerly endogenous variable."
+                    },
+                    {
+                        "name": "target_idx",
+                        "type": "int",
+                        "description": "An optional index that designates one of the columns as the target for prediction."
                     }
                 ]
             }
@@ -287,7 +292,13 @@ class ControlVsRespData:
             "causal_resp_states": self.interv_states.tolist(),
             "causal_resp_times": self.forecast_t.tolist(),
             "causal_resp_exog_idxs": self.do_intervention.intervened_idxs,
+            "target_idx": None,
         }
+
+        # Add a target index if the data has one.
+        if hasattr(self, "target_idx"):
+            cvr_dict["target_idx"] = self.target_idx
+
         with open(file_path, "w") as f:
             json.dump(cvr_dict, f)
         
@@ -430,6 +441,39 @@ def load_cvr_json(path: str) -> ControlVsRespData:
     forecast_states = np.array(data["forecast_states"])
     resp_states = np.array(data["causal_resp_states"])
 
+    # Load exogenous indexes.
+    obs_interv_exog_idxs = data["forecast_exog_idxs"]
+    do_interv_exog_idx = data["causal_resp_exog_idxs"]
+
+    # Initialize observational intervention.
+    obs_interv = interfere.SignalIntervention(
+        obs_interv_exog_idxs, 
+        # Interpolate the exogenous signals from the training and forecasting data.
+        [
+            interp1d(
+                x = np.hstack([train_t[:-1], forecast_t]),
+                y = np.hstack([train_states[:-1, i], forecast_states[:, i]])
+            )
+            for i in obs_interv_exog_idxs
+        ]
+    )
+
+    # Initialize causal intervention.
+    do_interv = interfere.SignalIntervention(
+        do_interv_exog_idx, 
+        # Interpolate the exogenous signals from the train and causal response data.
+        [
+            interp1d(
+                x = np.hstack([train_t[:-1], forecast_t]),
+                y = np.hstack([
+                    train_states[:-1, i], 
+                    resp_states[:, i]
+                ])
+            )
+            for i in do_interv_exog_idx
+        ]
+    )
+
     # Create SignalIntervention args from the exogenous states.
     train_exog_sigs = [
         interp1d(train_t, train_states[:, idx])
@@ -445,18 +489,12 @@ def load_cvr_json(path: str) -> ControlVsRespData:
     cvr = ControlVsRespData(
         train_prior_t=train_prior_t,
         train_prior_states=train_prior_states,
-        obs_intervention=interfere.SignalIntervention(
-            data["train_exog_idxs"],
-            train_exog_sigs
-        ),
+        obs_intervention=obs_interv,
         train_t=train_t,
         train_states=train_states,
         forecast_t=forecast_t,
         forecast_states=forecast_states,
-        do_intervention=interfere.SignalIntervention(
-            data["causal_resp_exog_idxs"],
-            do_exog_states
-        ),
+        do_intervention=do_interv,
         interv_states=resp_states
     )
 

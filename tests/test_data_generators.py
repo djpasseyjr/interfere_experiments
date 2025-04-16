@@ -71,20 +71,25 @@ def test_burn_in():
 
 
 def test_random_sig():
+    rng = np.random.default_rng(107)
 
     # Check that amplitude works as expected.
-    sig1 = ie.data_generators.randsig(10, amax=1)
-    sig2 = ie.data_generators.randsig(10, amax=3)
+    sig1 = ie.data_generators.randsig(10, amax=1, rng=rng)
+    sig2 = ie.data_generators.randsig(10, amax=3, rng=rng)
 
     t = np.linspace(0, 10, 1000)
 
     assert np.mean(sig1(t)) < np.mean(sig2(t))
 
+    # Reset RNG for consistent behavior in second part of test
+    rng = np.random.default_rng(107)
+
     # Check that frequency works as expected.
-    sig1 = ie.data_generators.randsig(10, fmax=10)
-    sig2 = ie.data_generators.randsig(10, fmax=3)
+    sig1 = ie.data_generators.randsig(10, fmax=50, rng=rng)
+    sig2 = ie.data_generators.randsig(10, fmax=3, rng=rng)
 
     assert np.std(sig1(t)) > np.std(sig2(t))
+
 
 # Test on only the first ten generators to save time.
 @pytest.mark.parametrize("dg_type", [
