@@ -24,8 +24,8 @@ ALL_METHODS = [
     interfere.methods.VAR,
     interfere.methods.SINDY,
     interfere.methods.ResComp,
-    interfere.methods.ARIMA,
     interfere.methods.LSTM,
+    interfere.methods.NHITS,
 ]
 FAST_METHODS = [
     interfere.methods.AverageMethod,
@@ -57,16 +57,26 @@ OPTUNA_TRIALS_DICT = {
 TRAIN_WINDOW_PERCENT = 0.5
 NUM_FOLDS = 3
 NUM_VAL_PRIOR_STATES = 25
-METRIC = interfere.metrics.RootMeanStandardizedSquaredError()
+RMSE = lambda _, target, prediction, *args : interfere.metrics.rmse(
+    target, prediction)
 NUM_TRAIN_OBS_LIST = [100, 200, 500, 1000, 2000, 3000, 4000, 5000]
+
+# For debugging.
+RAISE_EXCEPTIONS = True
 
 data_name = os.path.basename(DATA_FILE).split(".")[0]
 cvr_data = ie.control_vs_resp.load_cvr_json(DATA_FILE)
 
 f = Path(DATA_FILE)
+stoch_level = f.parent
+
 deterministic_data_file = f.parent.with_name("Deterministic") / f.name
 
 target_cvr_data = ie.control_vs_resp.load_cvr_json(deterministic_data_file)
+
+TARGET_IDX = target_cvr_data.target_idx
+assert isinstance(TARGET_IDX, int), (
+    f"TARGET_IDX is not an integer: TARGET_IDX = {TARGET_IDX}")
 
 score_file = SAVE_DIR + data_name + f"_scores[{str(METHOD_GROUP)}].pkl"
 pred_file = SAVE_DIR + data_name + f"_preds[{str(METHOD_GROUP)}].pkl"
@@ -74,7 +84,7 @@ pred_file = SAVE_DIR + data_name + f"_preds[{str(METHOD_GROUP)}].pkl"
 # Initialize empty results dictionaries
 score_df_cols = [
      "Dynamics", "Method", "Obs", "ForecastError", "CausalError", 
-     "Duration", "Trials", "Size", "Exceptions"
+     "Noise", "Duration", "Trials", "Size", "Exceptions"
 ]
 score_array = []
 
@@ -93,7 +103,7 @@ try:
     for method_type in METHODS:
         for num_train_obs in NUM_TRAIN_OBS_LIST:
 
-            errors = "Errors:"
+            errors = ""
             start_time = datetime.now()
 
             # Take the train data prior to the forecast.
@@ -109,14 +119,18 @@ try:
                 NUM_FOLDS,
                 val_scheme="forecast",
                 num_val_prior_states=NUM_VAL_PRIOR_STATES,
-                metric=METRIC,
+                metric=RMSE,
                 store_preds=True,
-                raise_errors=False,
+                raise_errors=RAISE_EXCEPTIONS,
                 exog_idxs=cvr_data.do_intervention.intervened_idxs,
             )
 
             study = optuna.create_study(
-                study_name=method_type.__name__ + " on " + data_name + f"({num_train_obs})")
+                study_name=(
+                    method_type.__name__ + " on " + str(stoch_level.name) + " " + data_name + 
+                    f"({num_train_obs})"
+                )
+            )
             n_trials = OPTUNA_TRIALS_DICT[method_type]
             study.optimize(objv, n_trials=n_trials)
 
@@ -138,10 +152,10 @@ try:
                 )
 
                 # Forecast error.
-                fcast_error = METRIC(
-                    target_cvr_data.train_states[:, [target_cvr_data.target_idx]],
-                    target_cvr_data.forecast_states[:, [target_cvr_data.target_idx]],
-                    forecast_pred[:, [target_cvr_data.target_idx]],
+                fcast_error = RMSE(
+                    target_cvr_data.train_states[:, [TARGET_IDX]],
+                    target_cvr_data.forecast_states[:, [TARGET_IDX]],
+                    forecast_pred[:, [TARGET_IDX]],
                     []
                 )
 
@@ -149,6 +163,9 @@ try:
                 fcast_error = np.nan
                 forecast_pred = None
                 errors += f"\n\nERROR {e}" + str(traceback.format_exc())
+
+                if RAISE_EXCEPTIONS:
+                    raise e
 
 
             # Causal prediction.
@@ -168,10 +185,10 @@ try:
                 )
 
                 # Causal prediction error.
-                causal_error = METRIC(
-                    target_cvr_data.train_states[:, [target_cvr_data.target_idx]],
-                    target_cvr_data.interv_states[:, [target_cvr_data.target_idx]],
-                    causal_pred[:, [target_cvr_data.target_idx]],
+                causal_error = RMSE(
+                    target_cvr_data.train_states[:, [TARGET_IDX]],
+                    target_cvr_data.interv_states[:, [TARGET_IDX]],
+                    causal_pred[:, [TARGET_IDX]],
                     []
                 )
 
@@ -180,6 +197,8 @@ try:
                 causal_pred = None
                 errors += f"\n\nERROR {e}" + str(traceback.format_exc())
 
+                if RAISE_EXCEPTIONS:
+                    raise e
             
             try:
                 best_trial_idx = study.best_trial.number
@@ -190,6 +209,8 @@ try:
                 )
                 best_trial_idx = 0
 
+                if RAISE_EXCEPTIONS:
+                    raise e
 
             end_time = datetime.now()
             duration = str(end_time - start_time)
@@ -197,7 +218,7 @@ try:
 
             # Save scores.
             score_array.append([
-                data_name, method_type.__name__, num_train_obs, fcast_error, causal_error,
+                data_name, method_type.__name__, num_train_obs, fcast_error, causal_error, stoch_level.name,
                 duration, n_trials, pred_sz, errors
             ])
 
@@ -220,4 +241,6 @@ except Exception as e:
     print("Experiment ended because of exception.")
     print(type(e).__name__, ": ", e)
     print(traceback.format_exc())
-
+    
+    if RAISE_EXCEPTIONS:
+        raise e
