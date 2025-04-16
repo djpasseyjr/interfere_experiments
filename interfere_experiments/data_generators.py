@@ -487,7 +487,7 @@ class CoupledLogisticMapConfound(DataGenerator):
     target_idx = 1
 
     # Intervention signals
-    interv_sig = lambda self, t: 0.4
+    interv_sig = lambda self, t: 1.0945528487552556
     exog1 = randsig(
         max_T=11_000, amax=0.6, amin=0.4,
         fmax=3, fmin=0.2, rng=np.random.default_rng(11) 
@@ -532,7 +532,7 @@ class CoupledLogisticMapBlockableConfound(DataGenerator):
 
 
     # Intervention signals
-    interv_sig = lambda self, t: 0.4
+    interv_sig = lambda self, t: 1.2710224243517882
     exog1 = randsig(
         max_T=11_000, amax=0.6, amin=0.4,
         fmax=3, fmin=0.2, rng=np.random.default_rng(11)
@@ -635,7 +635,7 @@ class CoupledLogisticMapOneCycle(DataGenerator):
 
 class CoupledMapLatticeChaoticBrownian(DataGenerator):
 
-    target_idx = 6
+    target_idx = 4
 
     def __init__(self):
         super().__init__(
@@ -645,7 +645,8 @@ class CoupledMapLatticeChaoticBrownian(DataGenerator):
                 "sigma": 0.0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 5, "constants": 0.75},
+            do_intervention_params = {
+                'intervened_idxs': [3], 'constants': [0.565683732357065]},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169, 0.2889972],
@@ -684,7 +685,7 @@ class CoupledMapLatticeChaoticTravelingWave(DataGenerator):
 
 class CoupledMapLatticeDefectTurbulence(DataGenerator):
 
-    target_idx = 4
+    target_idx = 2
 
     def __init__(self):
         super().__init__(
@@ -694,7 +695,8 @@ class CoupledMapLatticeDefectTurbulence(DataGenerator):
                 "sigma": 0.0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
+             do_intervention_params = {
+                'intervened_idxs': [3], 'constants': [0.685416454964697]},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842],
                 [0.29505913, 0.35622953, 0.67069543, 0.76956994, 0.10373029]
@@ -1075,7 +1077,7 @@ class KuramotoOscilator1(DataGenerator):
                     1.54984929, 0.48985921, 0.73281211, 0.42658923, 1.15827222,
                     0.10765091, 1.14874596, 1.31069673, 0.38975643, 0.5632573 
                 ]),
-                "K": 2.5,
+                "K": 5,
                 "adjacency_matrix": np.array([
                     [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
                     [1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0],
@@ -1114,7 +1116,7 @@ class KuramotoOscilator1(DataGenerator):
 
 class KuramotoOscilator2(DataGenerator):
 
-    target_idx = 1
+    target_idx = 5
 
     def __init__(self):
         super().__init__(
@@ -1124,7 +1126,7 @@ class KuramotoOscilator2(DataGenerator):
                     1.54984929, 0.48985921, 0.73281211, 0.42658923, 1.15827222,
                     0.10765091, 1.14874596, 1.31069673, 0.38975643, 0.5632573 
                 ]),
-                "K": 2.5,
+                "K": 5,
                 # A cycle and isolated node
                 "adjacency_matrix": np.array([
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
@@ -1141,7 +1143,8 @@ class KuramotoOscilator2(DataGenerator):
                 "sigma": 0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_params={
+                "intervened_idxs": 7, "constants": -0.4528152696777106},
             initial_condition=np.array([
                 [0.21688613, -0.52486516,  0.62411263, -0.2703094 , -0.82369351,
             -0.69257434, -0.25823711,  0.66971335, -0.54667034,  0.56496237],
@@ -1312,7 +1315,7 @@ class KuramotoSakaguchi2(DataGenerator):
 
 class KuramotoSakaguchi3(DataGenerator):
 
-    target_idx = 1
+    target_idx = 4
 
     def __init__(self):
         super().__init__(
@@ -1320,7 +1323,7 @@ class KuramotoSakaguchi3(DataGenerator):
             model_params={
                 # All nodes have the same fundamental frequency
                 "omega": np.ones(5),
-                "K": 4.0,
+                "K": 5.0,
                 "adjacency_matrix": np.array([
                     [0.0, 1.0, 0.0, 0.0, 0.0],
                     [1.0, 1.0, 0.0, 0.0, 0.0],
@@ -1339,7 +1342,8 @@ class KuramotoSakaguchi3(DataGenerator):
                 "sigma": 0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_params = {
+                'intervened_idxs': [1], 'constants': [0.3803837506262857]},
             initial_condition=np.array([
                 [ 0.77161016,  0.3487197 ,  0.96420325,  0.36306674, -0.33142683,],
                 [-2.27364797e-01, -6.39967817e-04, -8.92835027e-01, -1.88599377e-01,
@@ -1396,14 +1400,15 @@ class Lorenz1(DataGenerator):
 
 class Lorenz2(DataGenerator):
 
-    target_idx = 0
+    target_idx = 1
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.Lorenz,
             model_params={"beta": 3, "rho": 32, "s": 12},
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 1, "constants": -10.0},
+            do_intervention_params = {
+                'intervened_idxs': [0], 'constants': [-12.916396293295616]},
             initial_condition=np.array([
                 [0.66158597, 0.8012904 , 0.19920669],
                 [0.8102566 ,  0.10224813, -0.35046573]
@@ -1539,9 +1544,9 @@ class LotkaVoltera2(DataGenerator):
 
 class LotkaVoltera3(DataGenerator):
 
-    target_idx = 4
+    target_idx = 2
 
-    interv_sig = lambda self, t: 12.0
+    interv_sig = lambda self, t: 12.74213131393443
     exog1 = randsig(
             max_T=300, amax=12, amin=6,
             fmax=3, fmin=0.5, rng=np.random.default_rng(117)
@@ -1908,9 +1913,9 @@ class MooreSpiegel1(DataGenerator):
         super().__init__(
             model_type=interfere.dynamics.MooreSpiegel,
             model_params={"R": 100, "T": 10},
-            do_intervention_type=interfere.SignalIntervention,
+            do_intervention_type=interfere.PerfectIntervention,
             do_intervention_params={
-                "intervened_idxs": [1], "signals": [self.interv_sig]},
+                'intervened_idxs': [0], 'constants': [-2.7851316613097334]},
             initial_condition=np.array([
                 [1., 1.0, 1.0],
                 [1., 1.0, 1.0]
@@ -1949,15 +1954,14 @@ class MooreSpiegel2(DataGenerator):
 
     target_idx = 2
     max_timestep = 0.002
-    interv_sig = lambda self, t: -0.03
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.MooreSpiegel,
             model_params={"R": 100, "T": 40},
-            do_intervention_type=interfere.SignalIntervention,
-            do_intervention_params={
-                "intervened_idxs": [1], "signals": [self.interv_sig]},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params = {
+                'intervened_idxs': [2], 'constants': [-4.945882752501504]},
             initial_condition=np.array([
                 [1., 1.0, 1.0],
                 [1., 1.0, 1.0]
@@ -1994,7 +1998,7 @@ class MooreSpiegel2(DataGenerator):
 
 class MooreSpiegel3(DataGenerator):
 
-    target_idx = 2
+    target_idx = 0
     max_timestep = 0.002
     interv_sig = lambda self, t: 0.05
 
@@ -2002,9 +2006,9 @@ class MooreSpiegel3(DataGenerator):
         super().__init__(
             model_type=interfere.dynamics.MooreSpiegel,
             model_params={"R": 100, "T": 150},
-            do_intervention_type=interfere.SignalIntervention,
-            do_intervention_params={
-                "intervened_idxs": [1], "signals": [self.interv_sig]},
+            do_intervention_type=interfere.PerfectIntervention,
+            do_intervention_params = {
+                'intervened_idxs': [2], 'constants': [-0.7231047440097882]},
             initial_condition=np.array([
                 [1., 0.0, 1.0],
                 [1., 0.0, 1.0]
@@ -2624,14 +2628,15 @@ class SIS3(DataGenerator):
 
 class Thomas1(DataGenerator):
 
-    target_idx=1
+    target_idx = 1
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.Thomas,
             model_params={},
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": 3.0},
+            do_intervention_params={
+                'intervened_idxs': [2], 'constants': [-0.3493912766920553]},
             initial_condition=np.array([
                 [0.66158597, 0.8012904 , 0.19920669],
                 [0.8102566 ,  0.10224813, -0.35046573]
@@ -3403,7 +3408,7 @@ WC_MAX_T = WC_TIMESTEP * WC_MAX_NUM_STEPS
 WC_SLOPE = 2
 WC_THRESH = 0.5
 
-WC_MULTI_CONF_INTERV_CONST = 0.55
+WC_MULTI_CONF_INTERV_CONST = 0.631720941446042
 
 class WilsonCowanMultiConf(DataGenerator):
 
@@ -3444,11 +3449,11 @@ class WilsonCowanMultiConf(DataGenerator):
         )
 
 
-WC_DOWNSTREAM_INTERV_CONST = 0.55
+WC_DOWNSTREAM_INTERV_CONST = 1.0185367355580082
 
 class WilsonCowanDownstream(DataGenerator):
 
-    target_idx = 1
+    target_idx = 3
 
     interv = lambda self, t: WC_DOWNSTREAM_INTERV_CONST
     exog = randsig(
@@ -3476,7 +3481,7 @@ class WilsonCowanDownstream(DataGenerator):
             },
             do_intervention_type=interfere.SignalIntervention,
             do_intervention_params={
-                "intervened_idxs": [0, 2],
+                "intervened_idxs": [1, 2],
                 "signals": [self.interv, self.exog],
             },
             initial_condition=np.array([[0.76758088, 0.10922746, 0.79759653, 0.96874591]]),
