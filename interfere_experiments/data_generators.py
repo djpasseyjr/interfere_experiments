@@ -604,7 +604,7 @@ class CoupledLogisticMapTwoCycles(DataGenerator):
 
 class CoupledLogisticMapOneCycle(DataGenerator):
 
-    target_idx = 2
+    target_idx = 3
     
     def __init__(self):
         super().__init__(
@@ -621,7 +621,8 @@ class CoupledLogisticMapOneCycle(DataGenerator):
                 "sigma": 0.0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": 0.1},
+            do_intervention_params = {
+                'intervened_idxs': [0], 'constants': [0.46519538643237757]},
             initial_condition=np.array([
                 [0.44014438, 0.3384513 , 0.03194094, 0.65459332],
                 [0.26974736, 0.36818973, 0.30747773, 0.69532405]
@@ -706,7 +707,7 @@ class CoupledMapLatticeDefectTurbulence(DataGenerator):
 
 class CoupledMapLatticePatternSelection(DataGenerator):
 
-    target_idx = 1
+    target_idx = 2
 
     def __init__(self):
         super().__init__(
@@ -716,7 +717,8 @@ class CoupledMapLatticePatternSelection(DataGenerator):
                 "sigma": 0.0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
+            do_intervention_params = {
+                'intervened_idxs': [0], 'constants': [0.7205939053090276]},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169],
@@ -754,7 +756,7 @@ class CoupledMapLatticeSpatioTempChaos(DataGenerator):
 
 class CoupledMapLatticeSpatioTempIntermit(DataGenerator):
     
-    target_idx = 0
+    target_idx = 3
 
     def __init__(self):
         super().__init__(
@@ -764,7 +766,8 @@ class CoupledMapLatticeSpatioTempIntermit(DataGenerator):
                 "sigma": 0.0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 1, "constants": 0.5},
+            do_intervention_params = {
+                'intervened_idxs': [5], 'constants': [0.43793866747868826]},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563, 0.47947842,
                 0.59329169],
@@ -1033,7 +1036,7 @@ class HodgkinHuxley3Grid(DataGenerator):
 
 class ImaginaryRoots4D(DataGenerator):
 
-    target_idx = 1
+    target_idx = 2
 
     def __init__(self):
         super().__init__(
@@ -1042,7 +1045,8 @@ class ImaginaryRoots4D(DataGenerator):
                 "sigma": 0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": -0.5},
+             do_intervention_params = {
+                 'intervened_idxs': [3], 'constants': [-0.9775036218757577]},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279, 0.97851563],
                 [0.32654883, 0.8377457 , 0.82375113, 0.23435478]
@@ -1152,7 +1156,7 @@ class KuramotoOscilator2(DataGenerator):
 
 class KuramotoOscilator3(DataGenerator):
 
-    target_idx = 2
+    target_idx = 1
 
     def __init__(self):
         super().__init__(
@@ -1174,7 +1178,8 @@ class KuramotoOscilator3(DataGenerator):
                 "sigma": 0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": 0.75},
+            do_intervention_params = {
+                'intervened_idxs': [0], 'constants': [0.48104727562912253]},
             initial_condition=np.array([
                 [0.21688613, -0.52486516,  0.62411263, -0.2703094 , -0.82369351,
             -0.69257434, -0.25823711],
