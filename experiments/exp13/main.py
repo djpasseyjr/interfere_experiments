@@ -114,8 +114,8 @@ try:
             # Build a cross validation objective to optimize.
             objv = interfere.cross_validation.CrossValObjective(
                 method_type,
-                train_states,
-                train_times,
+                stoch_train_states,
+                stoch_train_times,
                 TRAIN_WINDOW_PERCENT,
                 NUM_FOLDS,
                 val_scheme="forecast",
