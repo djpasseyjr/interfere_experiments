@@ -4,8 +4,8 @@ METHODS=$2
 
 module purge
 module load anaconda
-conda activate interfere_exp12
+conda activate InterfereExp13
 
-pip list > /nas/longleaf/home/djpassey/interfere_experiments/experiments/exp12/requirements.txt
+pip list > /nas/longleaf/home/djpassey/interfere_experiments/experiments/exp13/requirements.txt
 
-python /nas/longleaf/home/djpassey/interfere_experiments/experiments/exp12/main.py $DATA_FILE $METHODS
+python /nas/longleaf/home/djpassey/interfere_experiments/experiments/exp13/main.py $DATA_FILE $METHODS
