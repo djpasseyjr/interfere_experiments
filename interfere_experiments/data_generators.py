@@ -661,7 +661,7 @@ class CoupledMapLatticeChaoticBrownian(DataGenerator):
 
 class CoupledMapLatticeChaoticTravelingWave(DataGenerator):
 
-    target_idx = 2
+    target_idx = 1
 
     def __init__(self):
         super().__init__(
@@ -671,7 +671,8 @@ class CoupledMapLatticeChaoticTravelingWave(DataGenerator):
                 "sigma": 0.0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": 0.5},
+            do_intervention_params = {
+                'intervened_idxs': [2], 'constants': [1.4903818467388763]},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279],
                 [0.29505913, 0.35622953, 0.67069543]
@@ -794,7 +795,8 @@ class CoupledMapLatticeTravelingWave(DataGenerator):
                 "sigma": 0.0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"intervened_idxs": 0, "constants": 0.5},
+            do_intervention_params = {
+                'intervened_idxs': [2], 'constants': [1.485239342953717]},
             initial_condition=np.array([
                 [0.02267611, 0.90949372, 0.92080279],
                 [0.29505913, 0.35622953, 0.67069543]
