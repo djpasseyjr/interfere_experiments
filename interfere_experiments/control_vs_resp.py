@@ -145,8 +145,8 @@ class ControlVsRespData:
                     f"\ninterv_states.shape = {self.interv_states.shape}"
                 )
     
-        obs_exog_idxs = set(self.obs_intervention.intervened_idxs)
-        do_exog_idxs = set(self.do_intervention.intervened_idxs)
+        obs_exog_idxs = set(self.obs_intervention.iv_idxs)
+        do_exog_idxs = set(self.do_intervention.iv_idxs)
         if (
             not obs_exog_idxs.issubset(do_exog_idxs)
             or
@@ -285,13 +285,13 @@ class ControlVsRespData:
             "initial_condition_times": self.train_prior_t.tolist(),
             "train_states": self.train_states.tolist(),
             "train_times": self.train_t.tolist(),
-            "train_exog_idxs": self.obs_intervention.intervened_idxs,
+            "train_exog_idxs": self.obs_intervention.iv_idxs,
             "forecast_states": self.forecast_states.tolist(),
             "forecast_times": self.forecast_t.tolist(),
-            "forecast_exog_idxs": self.obs_intervention.intervened_idxs,
+            "forecast_exog_idxs": self.obs_intervention.iv_idxs,
             "causal_resp_states": self.interv_states.tolist(),
             "causal_resp_times": self.forecast_t.tolist(),
-            "causal_resp_exog_idxs": self.do_intervention.intervened_idxs,
+            "causal_resp_exog_idxs": self.do_intervention.iv_idxs,
             "target_idx": None,
         }
 
@@ -816,7 +816,7 @@ class CVROptunaObjective:
         Returns:
             scores (List[float]): A list of scalar scores.
         """
-        obs_exog_idxs = obs_intervention.intervened_idxs
+        obs_exog_idxs = obs_intervention.iv_idxs
         train_scores = [
             m(data.train_states, data.train_states, train_pred, obs_exog_idxs)
             for m in self.metrics
@@ -832,7 +832,7 @@ class CVROptunaObjective:
             for m in self.metrics
         ]
 
-        do_exog_idxs = do_intervention.intervened_idxs
+        do_exog_idxs = do_intervention.iv_idxs
         interv_scores = [
             m(data.train_states, data.interv_states, interv_pred, do_exog_idxs)
             for m in self.metrics

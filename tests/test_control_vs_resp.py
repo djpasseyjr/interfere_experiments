@@ -160,13 +160,13 @@ def test_cvr_data_to_json(cvr_data: ie.control_vs_resp.ControlVsRespData):
     
     # Check exogenous state idxs are correct.
     assert np.all(
-        np.array(loaded_json["train_exog_idxs"]) == np.array(cvr_data.obs_intervention.intervened_idxs)
+        np.array(loaded_json["train_exog_idxs"]) == np.array(cvr_data.obs_intervention.iv_idxs)
     )
     assert np.all(
-        np.array(loaded_json["forecast_exog_idxs"]) == np.array(cvr_data.obs_intervention.intervened_idxs)
+        np.array(loaded_json["forecast_exog_idxs"]) == np.array(cvr_data.obs_intervention.iv_idxs)
     )
     assert np.all(
-        np.array(loaded_json["causal_resp_exog_idxs"]) == np.array(cvr_data.do_intervention.intervened_idxs)
+        np.array(loaded_json["causal_resp_exog_idxs"]) == np.array(cvr_data.do_intervention.iv_idxs)
     )
 
     # Check that intervention is correct.
