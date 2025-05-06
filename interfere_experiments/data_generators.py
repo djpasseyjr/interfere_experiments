@@ -2601,13 +2601,13 @@ class SIS3(DataGenerator):
             model_type=interfere.dynamics.SIS,
             model_params={
                 "delta": 5 * np.ones(6),
-                "adjacency_matrix": -1 * np.array([
-                    [0, -1, 0, 0, -1, 0],
-                    [-1, 0, 0, 1, 0, 0],
-                    [1, 0, 0, 1, 0, 1],
-                    [0, 0, 0, 0, 1, 1],
-                    [10, 0, 0, 5, 0, 0],
-                    [0, 1, 0, 0, 1, 0]
+                "adjacency_matrix": np.array([
+                    [  0,   1,   0,   0,   1,   0],
+                    [  1,   0,   0,  -1,   0,   0],
+                    [ -1,   0,   0,  -1,   0,  -1],
+                    [  0,   0,   0,   0,  -1,  -1],
+                    [-1,   0,   0,  -1,   0,   0],
+                    [  0,  -1,   0,   0,  -1,   0]
                 ]),
             },
             obs_intervention_type=interfere.SignalIntervention,
