@@ -313,7 +313,7 @@ def generate_data(
     train_prior_states: Optional[np.ndarray] = None,
     lags: Optional[int] = 50,
     rng: np.random.RandomState = DEFAULT_RNG,
-
+    numerical_method: str = "EulerMaruyama",
 ) -> ControlVsRespData:
     """Makes data for the control v.s. response problem.
 
@@ -381,7 +381,8 @@ def generate_data(
         prior_states=train_prior_states,
         prior_t=train_prior_t,
         intervention=obs_intervention,
-        rng=rng
+        rng=rng,
+        numerical_method=numerical_method,
     )
 
     forecast_t = np.arange(
@@ -396,13 +397,18 @@ def generate_data(
         prior_states=train_states,
         prior_t=train_t,
         intervention=obs_intervention,
-        rng=rng
+        rng=rng,
+        numerical_method=numerical_method,
     )
 
     # Simulate intervention.
     interv_states = model.simulate(
-        forecast_t, prior_states=train_states, prior_t=train_t, 
-        intervention=do_intervention, rng=rng
+        forecast_t,
+        prior_states=train_states,
+        prior_t=train_t, 
+        intervention=do_intervention, 
+        rng=rng,
+        numerical_method=numerical_method,
     )
 
     return ControlVsRespData(

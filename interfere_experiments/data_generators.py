@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Type
 
 import interfere
 from interfere.interventions import ExogIntervention
+from interfere.dynamics.pyclustering_models import HodgkinHuxleyPyclustering
 import numpy as np
 import scipy.interpolate
 
@@ -69,6 +70,7 @@ class DataGenerator:
         num_train_obs: int = 100,
         num_forecast_obs: int = 50,
         num_burn_in_states: int = 0,
+        numerical_method: str = "EulerMaruyama",
     ) -> control_vs_resp.ControlVsRespData:
         """Generates data from the model.
 
@@ -104,7 +106,8 @@ class DataGenerator:
                 **self.obs_intervention_params
             ),
             train_prior_states=self.initial_condition,
-            rng=self.rng
+            rng=self.rng,
+            numerical_method=numerical_method,
         )
 
         # Collect all training data
@@ -898,7 +901,7 @@ class HodgkinHuxley1(DataGenerator):
 
     def __init__(self):
         super().__init__(
-            model_type=interfere.dynamics.HodgkinHuxleyPyclustering,
+            model_type=HodgkinHuxleyPyclustering,
             model_params={
                 "stimulus": np.array(
                     [ -7.04509716,  -0.61807187,  15.3283015 ,   7.5973135 ,
@@ -954,7 +957,7 @@ class HodgkinHuxley2Chain(DataGenerator):
 
     def __init__(self):
         super().__init__(
-            model_type=interfere.dynamics.HodgkinHuxleyPyclustering,
+            model_type=HodgkinHuxleyPyclustering,
             model_params={
                 "stimulus": np.array([
                     27.70407901, 35.16803566, 29.85919101, 65.14444685,
@@ -1010,7 +1013,7 @@ class HodgkinHuxley3Grid(DataGenerator):
 
     def __init__(self):
         super().__init__(
-            model_type=interfere.dynamics.HodgkinHuxleyPyclustering,
+            model_type=HodgkinHuxleyPyclustering,
             model_params={
                 "stimulus": np.array(
                 [50.427046  , 21.77379092, 68.36204063, 65.45262642, 40.63269141,
