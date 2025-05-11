@@ -1079,9 +1079,9 @@ class ImaginaryRoots4D(DataGenerator):
 
 class KuramotoOscilator1(DataGenerator):
 
-    target_idx = 9
+    target_idx = 6
 
-    interv_sig = lambda self, t: -0.37437745320381755
+    interv_sig = lambda self, t: 0.41069838179167695
     exog = randsig(
         max_T=11_000, amax=0.3, amin=-0.3,
         fmax=2, fmin=0.2, rng=np.random.default_rng(11)
@@ -1117,7 +1117,7 @@ class KuramotoOscilator1(DataGenerator):
             },
             do_intervention_type=interfere.SignalIntervention,
             do_intervention_params={
-                "iv_idxs": [8, 2],
+                "iv_idxs": [5, 2],
                 "signals": [self.interv_sig, self.exog]
             },
             initial_condition=np.array([
