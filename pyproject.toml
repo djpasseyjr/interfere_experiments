@@ -10,11 +10,12 @@ authors = [
 ]
 dependencies = [
     "interfere@git+https://github.com/djpasseyjr/interfere",
+    "pyclustering@git+https://github.com/djpasseyjr/pyclustering",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
+    "pytest"
 ]
 notebooks = [
     "jupyter"
