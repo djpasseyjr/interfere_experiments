@@ -1233,7 +1233,8 @@ class KuramotoOscilator4(DataGenerator):
                 "sigma": 0,
             },
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"iv_idxs": 0, "constants": -0.5},
+            do_intervention_params = {
+                'iv_idxs': [2], 'constants': [0.9106667186268649]},
             initial_condition=np.array([
                 [0.21688613, -0.52486516,  0.62411263],
                 [-0.83527427,  0.67926305,  0.42997372]
@@ -1399,14 +1400,15 @@ class Liping3DQuadFinance1(DataGenerator):
 
 class Lorenz1(DataGenerator):
 
-    target_idx = 1
+    target_idx = 0
 
     def __init__(self):
         super().__init__(
             model_type=interfere.dynamics.Lorenz,
             model_params={},
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={"iv_idxs": 0, "constants": 15.0},
+            do_intervention_params = {
+                'iv_idxs': [1], 'constants': [-24.141006997756854]},
             initial_condition=np.array([
                 [0.66158597, 0.8012904 , 0.19920669],
                 [0.8102566 ,  0.10224813, -0.35046573]
@@ -1426,7 +1428,7 @@ class Lorenz2(DataGenerator):
             model_params={"beta": 3, "rho": 32, "s": 12},
             do_intervention_type=interfere.PerfectIntervention,
             do_intervention_params = {
-                'iv_idxs': [0], 'constants': [-12.916396293295616]},
+                'iv_idxs': [2], 'constants': [97.2068285652127]},
             initial_condition=np.array([
                 [0.66158597, 0.8012904 , 0.19920669],
                 [0.8102566 ,  0.10224813, -0.35046573]
@@ -1923,7 +1925,7 @@ class MichaelisMenten3(DataGenerator):
 
 class MooreSpiegel1(DataGenerator):
 
-    target_idx = 2
+    target_idx = 0
     max_timestep = 0.002
     interv_sig = lambda self, t: -0.03
 
@@ -1932,8 +1934,8 @@ class MooreSpiegel1(DataGenerator):
             model_type=interfere.dynamics.MooreSpiegel,
             model_params={"R": 100, "T": 10},
             do_intervention_type=interfere.PerfectIntervention,
-            do_intervention_params={
-                'iv_idxs': [0], 'constants': [-2.7851316613097334]},
+            do_intervention_params = {
+                'iv_idxs': [2], 'constants': [-53.67259306765209]},
             initial_condition=np.array([
                 [1., 1.0, 1.0],
                 [1., 1.0, 1.0]
@@ -1973,7 +1975,7 @@ class MooreSpiegel1(DataGenerator):
 
 class MooreSpiegel2(DataGenerator):
 
-    target_idx = 1
+    target_idx = 2
     max_timestep = 0.002
 
     def __init__(self):
@@ -1982,7 +1984,7 @@ class MooreSpiegel2(DataGenerator):
             model_params={"R": 100, "T": 40},
             do_intervention_type=interfere.PerfectIntervention,
             do_intervention_params = {
-                'iv_idxs': [2], 'constants': [-4.945882752501504]},
+                'iv_idxs': [0], 'constants': [-3.97789175373861]},
             initial_condition=np.array([
                 [1., 1.0, 1.0],
                 [1., 1.0, 1.0]
@@ -2575,7 +2577,7 @@ class SIS1(DataGenerator):
 
 class SIS2(DataGenerator):
 
-    target_idx = 1
+    target_idx = 0
 
     exog = randsig(
         max_T=1000, amax=0.8, amin=0.2,
