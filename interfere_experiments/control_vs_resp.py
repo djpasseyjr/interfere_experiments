@@ -333,6 +333,8 @@ def generate_data(
         lags (Optional[int] = 50): How many historic states there should be.
             Used only when train_prior_states is none.
         rng (np.random.Generator): Random state.
+        numerical_method (str): The numerical method to use for simulation.
+            Defaults to "EulerMaruyama".
 
     Returns:
         A ControlVsRespData dataclass. Training data 

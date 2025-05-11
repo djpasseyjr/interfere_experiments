@@ -79,9 +79,10 @@ class DataGenerator:
                 generate. Defaults to 100.
             num_forecast_obs (int): The number of forecast data observations to
                 generate. Defaults to 50.
-            num_burn_in_obs (int): Number of observations to chop off the beginning 
-                of the generated data. This is used to remove the effect of 
-                transient states due to the initial condition.
+            num_burn_in_obs (int): Number of observations to chop off the
+                beginning of the generated data. This is used to remove the effect of transient states due to the initial condition.
+                Defaults to 0.
+            numerical_method (str): The numerical method to use for simulation.
 
         Returns:
             ControlVsRespData: The generated data.
@@ -147,6 +148,7 @@ class DataGenerator:
         num_train_obs = 100,
         num_forecast_obs = 50,
         num_burn_in_states = 0,
+        numerical_method: str = "EulerMaruyama",
     ) -> control_vs_resp.ControlVsRespData:
         """Generates data using new_timestep and then downsamples it.
         Used for dynamics where timestep must be small to prevent numerical
@@ -157,6 +159,7 @@ class DataGenerator:
             num_train_obs (int): Number of training observations.
             num_forecast_obs (int): Number of forecast observations.
             num_burn_in_states (int): Number of burn-in states.
+            numerical_method (str): The numerical method to use for simulation.
 
         Returns:
             Data (ControlVsRespData): The generated data.
@@ -172,7 +175,8 @@ class DataGenerator:
             return self.generate_data(
                 num_train_obs,
                 num_forecast_obs,
-                num_burn_in_states
+                num_burn_in_states,
+                numerical_method=numerical_method,
             )
 
         else:
@@ -218,7 +222,8 @@ class DataGenerator:
                 # Therefore, we exclude the "extra" states at the end that will # be removed by the downsample anyway in the next section.
                 num_train_obs * (down_sample_rate - 1) + 1,
                 num_forecast_obs * (down_sample_rate - 1) + 1,
-                num_burn_in_states * (down_sample_rate - 1) + 1
+                num_burn_in_states * (down_sample_rate - 1) + 1,
+                numerical_method=numerical_method,
             )
 
             # Down sample data fields.
@@ -932,7 +937,8 @@ class HodgkinHuxley1(DataGenerator):
     def generate_data(
         self, num_train_obs = 100,
         num_forecast_obs = 50,
-        num_burn_in_states = 0
+        num_burn_in_states = 0,
+        numerical_method = "EulerMaruyama",
     ):
         # Stepsize must be small or forward Euler diverges.
         if self.timestep > 0.002:
@@ -943,12 +949,15 @@ class HodgkinHuxley1(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
         
         else:
             return super().generate_data(
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
 
 class HodgkinHuxley2Chain(DataGenerator):
@@ -989,7 +998,8 @@ class HodgkinHuxley2Chain(DataGenerator):
     def generate_data(
         self, num_train_obs = 100,
         num_forecast_obs = 50,
-        num_burn_in_states = 0
+        num_burn_in_states = 0,
+        numerical_method = "EulerMaruyama"
     ):
         # Stepsize must be small or forward Euler diverges.
         if self.timestep > 0.002:
@@ -1000,12 +1010,15 @@ class HodgkinHuxley2Chain(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
         
         else:
             return super().generate_data(
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
 
 
@@ -1934,7 +1947,8 @@ class MooreSpiegel1(DataGenerator):
     def generate_data(
         self, num_train_obs = 100,
         num_forecast_obs = 50,
-        num_burn_in_states = 0
+        num_burn_in_states = 0,
+        numerical_method = "EulerMaruyama"
     ):
         # Stepsize must be small or forward Euler diverges.
         if self.timestep > 0.002:
@@ -1945,6 +1959,7 @@ class MooreSpiegel1(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
         
         else:
@@ -1952,6 +1967,7 @@ class MooreSpiegel1(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
 
 
@@ -1980,7 +1996,8 @@ class MooreSpiegel2(DataGenerator):
     def generate_data(
         self, num_train_obs = 100,
         num_forecast_obs = 50,
-        num_burn_in_states = 0
+        num_burn_in_states = 0,
+        numerical_method = "EulerMaruyama"
     ):
         # Stepsize must be small or forward Euler diverges.
         if self.timestep > 0.002:
@@ -1991,6 +2008,7 @@ class MooreSpiegel2(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
         
         else:
@@ -1998,6 +2016,7 @@ class MooreSpiegel2(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
 
 
@@ -2027,7 +2046,8 @@ class MooreSpiegel3(DataGenerator):
     def generate_data(
         self, num_train_obs = 100,
         num_forecast_obs = 50,
-        num_burn_in_states = 0
+        num_burn_in_states = 0,
+        numerical_method = "EulerMaruyama"
     ):
         # Stepsize must be small or forward Euler diverges.
         if self.timestep > 0.002:
@@ -2038,6 +2058,7 @@ class MooreSpiegel3(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
         
         else:
@@ -2045,6 +2066,7 @@ class MooreSpiegel3(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
 
 
@@ -2434,7 +2456,8 @@ class Rossler1(DataGenerator):
     def generate_data(
         self, num_train_obs = 100,
         num_forecast_obs = 50,
-        num_burn_in_states = 0
+        num_burn_in_states = 0,
+        numerical_method = "EulerMaruyama"
     ):
         # Stepsize must be small or forward Euler diverges.
         if self.timestep > 0.002:
@@ -2445,12 +2468,15 @@ class Rossler1(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
         
         else:
             return super().generate_data(
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
 
 
@@ -2478,7 +2504,8 @@ class Rossler2(DataGenerator):
     def generate_data(
         self, num_train_obs = 100,
         num_forecast_obs = 50,
-        num_burn_in_states = 0
+        num_burn_in_states = 0,
+        numerical_method = "EulerMaruyama"
     ):
         # Stepsize must be small or forward Euler diverges.
         if self.timestep > 0.002:
@@ -2489,12 +2516,15 @@ class Rossler2(DataGenerator):
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
                 num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
         
         else:
             return super().generate_data(
                 num_train_obs=num_train_obs,
                 num_forecast_obs=num_forecast_obs,
+                num_burn_in_states=num_burn_in_states,
+                numerical_method=numerical_method,
             )
         
 
