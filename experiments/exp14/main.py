@@ -18,7 +18,8 @@ if len(sys.argv) > 2:
     METHOD_GROUP = sys.argv[2]
 
 
-SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp14.1/"
+SAVE_DIR = "/work/users/d/j/djpassey/interfere_exp14.2/"
+
 ALL_METHODS = [
     interfere.methods.AverageMethod,
     interfere.methods.VAR,
@@ -79,8 +80,8 @@ assert isinstance(TARGET_IDX, int), (
     f"TARGET_IDX is not an integer: TARGET_IDX = {TARGET_IDX}")
 
 
-score_file = SAVE_DIR + data_name + f"_scores[{str(METHOD_GROUP)}].pkl"
-pred_file = SAVE_DIR + data_name + f"_preds[{str(METHOD_GROUP)}].pkl"
+score_file = SAVE_DIR + stoch_level.name + "/" + data_name + f"_scores[{str(METHOD_GROUP)}].pkl"
+pred_file = SAVE_DIR + stoch_level.name + "/" + data_name + f"_preds[{str(METHOD_GROUP)}].pkl"
 
 # Initialize empty results dictionaries
 score_df_cols = [
